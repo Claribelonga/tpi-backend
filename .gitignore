@@ -1,0 +1,8 @@
+# Directorios de dependencias
+node_modules/
+
+# Archivos de entorno (seguridad)
+.env
+
+# Logs y otros
+*.log
