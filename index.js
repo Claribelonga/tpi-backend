@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require("cors");
 
 require('dotenv').config();
 
@@ -13,6 +14,7 @@ app.use(express.json());
 //https://phpmyadmin.ctpoba.edu.ar
 
 //npm i @damianegreco/hashpass, es la libreria del profeuwu
+app.use(cors());
 
 app.use('/api', apiRouter);
 
@@ -21,5 +23,5 @@ app.listen(PORT, function(error){
     console.error(error);
     process.exit(1);
  }
-console.log(`escuchando em el puerto ${PORT}`);
+console.log(`escuchando en el puerto ${PORT}`);
 })

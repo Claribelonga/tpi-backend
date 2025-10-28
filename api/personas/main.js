@@ -1,51 +1,107 @@
 const router = require("express").Router();
 const db = require('../../conexion');
 
-//const loginRouter = require("./login");
-
 const {hashPass} = require('@damianegreco/hashpass');
 
-//router.use("/login", loginRouter);
+//un get con paginacion para ver la lista de clientes, preguntar si es la mejor opcion
+router.get("/ver", function(req, res, next) {
+  const { pagina, busqueda } = req.query;
 
-//perfil
-router.get("/perfil/:id_usuario", function(req, res, next) {
-  const { id_usuario } = req.params;
+  const registrosPorPagina = 4;
+  const paginaActual = parseInt(pagina) || 1;
+  const offset = (paginaActual - 1) * registrosPorPagina;
 
-  const sql = `
+  let sqlPersonas = `
     SELECT 
-      u.id_usuario, u.email, u.contraseña,
-      p.id_persona, p.nombre, p.apellido, p.dni, p.telefono, p.id_direccion,
-      d.calle, d.numero, d.piso, d.departamento
-    FROM usuarios u
-    JOIN personas p ON u.id_usuario = p.id_usuario
+      p.id_persona, p.nombre, p.apellido, p.dni, p.telefono, p.id_direccion, p.id_usuario,
+      d.calle, d.numero, d.piso, d.departamento,
+      u.email
+    FROM personas p
     JOIN direcciones d ON p.id_direccion = d.id_direccion
-    WHERE u.id_usuario = ?
+    JOIN usuarios u ON p.id_usuario = u.id_usuario
+    WHERE u.id_rol = 3
   `;
 
-  db.query(sql, [id_usuario])
-    .then(([rows]) => {
-      if (rows.length === 0) {
-        return res.status(404).send("Usuario no encontrado");
-      }
-      res.send(rows[0]); // solo uno
+  const params = [];
+
+  // Búsqueda parcial por nombre y apellido
+  if (busqueda) {
+    sqlPersonas += " AND CONCAT(p.nombre, ' ', p.apellido) LIKE ?";
+    params.push(`%${busqueda}%`);
+  }
+
+  sqlPersonas += " LIMIT ? OFFSET ?";
+  params.push(registrosPorPagina, offset);
+
+  db.query(sqlPersonas, params)
+    .then(([personas]) => {
+      const ids = personas.map(p => p.id_persona);
+      if (ids.length === 0) return res.send([]);
+
+      const sqlMascotas = `
+        SELECT id_mascota, nombre, id_persona
+        FROM mascotas
+        WHERE id_persona IN (${ids.map(() => '?').join(',')})
+      `;
+
+      db.query(sqlMascotas, ids)
+        .then(([mascotas]) => {
+          const mascotasPorPersona = {};
+          mascotas.forEach(m => {
+            if (!mascotasPorPersona[m.id_persona]) {
+              mascotasPorPersona[m.id_persona] = [];
+            }
+            mascotasPorPersona[m.id_persona].push({
+              id_mascota: m.id_mascota,
+              nombre: m.nombre
+            });
+          });
+          //preguntar si esta bien
+          const resultadoFinal = personas.map(p => ({
+            id_persona: p.id_persona,
+            nombre: p.nombre,
+            apellido: p.apellido,
+            dni: p.dni,
+            telefono: p.telefono,
+            direccion: {
+              id_direccion: p.id_direccion,
+              calle: p.calle,
+              numero: p.numero,
+              piso: p.piso,
+              departamento: p.departamento
+            },
+            usuario: {
+              id_usuario: p.id_usuario,
+              email: p.email
+            },
+            mascotas: mascotasPorPersona[p.id_persona] || []
+          }));
+
+          res.send(resultadoFinal);
+        })
+        .catch(error => {
+          console.error("Error al obtener mascotas:", error);
+          res.status(500).send("Ocurrió un error al obtener las mascotas");
+        });
     })
-    .catch((error) => {
-      console.error("Error en GET /perfil/:id_usuario:", error);
-      res.status(500).send("Ocurrió un error al obtener el perfil del usuario");
+    .catch(error => {
+      console.error("Error en GET /personas:", error);
+      res.status(500).send("Ocurrió un error al obtener las personas");
     });
 });
 
 
-//lo usa el cliente para registrarse
-router.post("/registro", function(req, res, next) {
+
+//crea un nuevo cliente
+router.post("/crearcliente", function(req, res, next) {
   const {
-    email, contraseña,
+    email, contraseña, id_rol,
     nombre, apellido, dni, telefono,
     calle, numero, piso, departamento
   } = req.body;
 
   const passHash = hashPass(contraseña);
-  const id_rol = 3;
+
   // 1. Insertar en usuarios
   const sqlUsuario = "INSERT INTO usuarios (email, contraseña, id_rol) VALUES (?, ?, ?)";
   db.query(sqlUsuario, [email, passHash, id_rol])
@@ -74,8 +130,8 @@ router.post("/registro", function(req, res, next) {
     });
 });
 
-//el cliente actualiza su perfil
-router.put("/editarperfil/:id_usuario", function(req, res, next) {
+//editar el cliente, menos mascotas ya que corresponde a otra tabla
+router.put("/editarcliente/:id_usuario", function(req, res, next) {
   const { id_usuario } = req.params;
   const {
     email, contraseña,
@@ -115,6 +171,8 @@ router.put("/editarperfil/:id_usuario", function(req, res, next) {
       res.status(500).send("Ocurrió un error al actualizar el perfil");
     });
 });
+
+
 
 
 module.exports = router;
