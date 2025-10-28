@@ -6,10 +6,7 @@ const db = mysql.createPool({
     host: DBHOST,
     user: DBUSER,
     database: DBNAME, 
-    password: DBPASS,
-    waitForConnections: true,
-    connectionLimit:10,
-    queueLimit:0
+    password: DBPASS
 })
 
 module.exports = db

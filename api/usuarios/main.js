@@ -39,13 +39,13 @@ router.get("/perfil/:id_usuario", function(req, res, next) {
 //lo usa el cliente para registrarse
 router.post("/registro", function(req, res, next) {
   const {
-    email, contraseña, id_rol,
+    email, contraseña,
     nombre, apellido, dni, telefono,
     calle, numero, piso, departamento
   } = req.body;
 
   const passHash = hashPass(contraseña);
-
+  const id_rol = 3;
   // 1. Insertar en usuarios
   const sqlUsuario = "INSERT INTO usuarios (email, contraseña, id_rol) VALUES (?, ?, ?)";
   db.query(sqlUsuario, [email, passHash, id_rol])
