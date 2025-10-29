@@ -3,7 +3,7 @@ const db = require('../../conexion');
 
 const {hashPass} = require('@damianegreco/hashpass');
 
-//un get con paginacion para ver la lista de clientes, preguntar si es la mejor opcion
+//un get con paginacion para ver la lista de clientes, preguntar si es la mejor opcion, para admin
 router.get("/", function(req, res, next) {
   const { pagina, busqueda } = req.query;
 
@@ -68,7 +68,6 @@ router.get("/", function(req, res, next) {
       res.status(500).send("Ocurrió un error al obtener los veterinarios");
     });
 });
-
 
 
 
