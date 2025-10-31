@@ -1,11 +1,11 @@
 const router = require("express").Router();
 const db = require('../../conexion');
 
-//const loginRouter = require("./login");
+const loginRouter = require("./login");
 
 const {hashPass} = require('@damianegreco/hashpass');
 
-//router.use("/login", loginRouter);
+router.use("/login", loginRouter);
 
 //perfil
 router.get("/perfil/:id_usuario", function(req, res, next) {

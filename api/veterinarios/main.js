@@ -3,14 +3,14 @@ const db = require('../../conexion');
 
 const {hashPass} = require('@damianegreco/hashpass');
 
-//un get con paginacion para ver la lista de clientes, preguntar si es la mejor opcion
+//El admin puede ver la lista de veterinarios con paginacion.
 router.get("/", function(req, res, next) {
   const { pagina, busqueda } = req.query;
 
   const registrosPorPagina = 4;
   const paginaActual = parseInt(pagina) || 1;
   const offset = (paginaActual - 1) * registrosPorPagina;
-
+  //crear el count
   let sqlPersonas = `
     SELECT 
       p.id_persona, p.nombre, p.apellido, p.dni, p.telefono, p.id_direccion, p.id_usuario,
@@ -71,17 +71,15 @@ router.get("/", function(req, res, next) {
 
 
 
-
-router.post("/crearvete", function(req, res, next) {
+router.post("/crearveterinario", function(req, res, next) {
   const {
-    email, contraseña, id_rol,
-    nombre, apellido, dni, telefono,
+    email, contraseña, nombre, apellido, dni, telefono,
     calle, numero, piso, departamento,
     matricula, id_especialidad
   } = req.body;
 
   const passHash = hashPass(contraseña);
-
+  const id_rol = 2;
   // 1. Insertar en usuarios
   const sqlUsuario = "INSERT INTO usuarios (email, contraseña, id_rol) VALUES (?, ?, ?)";
   db.query(sqlUsuario, [email, passHash, id_rol])

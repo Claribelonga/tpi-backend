@@ -3,8 +3,8 @@ const db = require('../../conexion');
 
 const {hashPass} = require('@damianegreco/hashpass');
 
-//un get con paginacion para ver la lista de clientes, preguntar si es la mejor opcion
-router.get("/ver", function(req, res, next) {
+//El admin puede ver una lista de clientes con paginacion.
+router.get("/", function(req, res) {
   const { pagina, busqueda } = req.query;
 
   res.send ("ruta de admin andando");
@@ -13,92 +13,80 @@ router.get("/ver", function(req, res, next) {
   const paginaActual = parseInt(pagina) || 1;
   const offset = (paginaActual - 1) * registrosPorPagina;
 
-  let sqlPersonas = `
+  const params = [];
+
+  //hacer una consulta de cantos registros son para dividir los registros por pag.
+  let sql = `
     SELECT 
-      p.id_persona, p.nombre, p.apellido, p.dni, p.telefono, p.id_direccion, p.id_usuario,
-      d.calle, d.numero, d.piso, d.departamento,
-      u.email
+      p.id_persona, p.nombre, p.apellido, p.dni, p.telefono,
+      d.id_direccion, d.calle, d.numero, d.piso, d.departamento,
+      u.id_usuario, u.email,
+      m.id_mascota, m.nombre AS nombre_mascota
     FROM personas p
-    JOIN direcciones d ON p.id_direccion = d.id_direccion
-    JOIN usuarios u ON p.id_usuario = u.id_usuario
+    INNER JOIN direcciones d ON p.id_direccion = d.id_direccion
+    INNER JOIN usuarios u ON p.id_usuario = u.id_usuario
+    LEFT JOIN mascotas m ON p.id_persona = m.id_persona
     WHERE u.id_rol = 3
   `;
 
-  const params = [];
-
-  // Búsqueda parcial por nombre y apellido
   if (busqueda) {
-    sqlPersonas += " AND CONCAT(p.nombre, ' ', p.apellido) LIKE ?";
+    sql += " AND CONCAT(p.nombre, ' ', p.apellido) LIKE ?";
     params.push(`%${busqueda}%`);
   }
 
-  sqlPersonas += " LIMIT ? OFFSET ?";
+  sql += " LIMIT ? OFFSET ?";
   params.push(registrosPorPagina, offset);
 
-  db.query(sqlPersonas, params)
-    .then(([personas]) => {
-      const ids = personas.map(p => p.id_persona);
-      if (ids.length === 0) return res.send([]);
+  db.query(sql, params)
+    .then(([rows]) => {
+      const personasMap = {};
 
-      const sqlMascotas = `
-        SELECT id_mascota, nombre, id_persona
-        FROM mascotas
-        WHERE id_persona IN (${ids.map(() => '?').join(',')})
-      `;
+      rows.forEach(row => {
+        const id = row.id_persona;
 
-      db.query(sqlMascotas, ids)
-        .then(([mascotas]) => {
-          const mascotasPorPersona = {};
-          mascotas.forEach(m => {
-            if (!mascotasPorPersona[m.id_persona]) {
-              mascotasPorPersona[m.id_persona] = [];
-            }
-            mascotasPorPersona[m.id_persona].push({
-              id_mascota: m.id_mascota,
-              nombre: m.nombre
-            });
-          });
-          //preguntar si esta bien
-          const resultadoFinal = personas.map(p => ({
-            id_persona: p.id_persona,
-            nombre: p.nombre,
-            apellido: p.apellido,
-            dni: p.dni,
-            telefono: p.telefono,
+        if (!personasMap[id]) {
+          personasMap[id] = {
+            id_persona: id,
+            nombre: row.nombre,
+            apellido: row.apellido,
+            dni: row.dni,
+            telefono: row.telefono,
             direccion: {
-              id_direccion: p.id_direccion,
-              calle: p.calle,
-              numero: p.numero,
-              piso: p.piso,
-              departamento: p.departamento
+              id_direccion: row.id_direccion,
+              calle: row.calle,
+              numero: row.numero,
+              piso: row.piso,
+              departamento: row.departamento
             },
             usuario: {
-              id_usuario: p.id_usuario,
-              email: p.email
+              id_usuario: row.id_usuario,
+              email: row.email
             },
-            mascotas: mascotasPorPersona[p.id_persona] || []
-          }));
+            mascotas: []
+          };
+        }
 
-          res.send(resultadoFinal);
-        })
-        .catch(error => {
-          console.error("Error al obtener mascotas:", error);
-          res.status(500).send("Ocurrió un error al obtener las mascotas");
-        });
+        if (row.id_mascota) {
+          personasMap[id].mascotas.push({
+            id_mascota: row.id_mascota,
+            nombre: row.nombre_mascota
+          });
+        }
+      });
+
+      res.send(Object.values(personasMap));
     })
     .catch(error => {
-      console.error("Error en GET /personas:", error);
-      res.status(500).send("Ocurrió un error al obtener las personas");
+      console.error("Error en GET /ver:", error);
+      res.status(500).send("Ocurrió un error al obtener los datos");
     });
 });
 
 
-
-//crea un nuevo cliente
+// El admin crea un nuevo cliente
 router.post("/crearcliente", function(req, res, next) {
   const {
-    email, contraseña,
-    nombre, apellido, dni, telefono,
+    email, contraseña, nombre, apellido, dni, telefono,
     calle, numero, piso, departamento
   } = req.body;
 
@@ -132,7 +120,7 @@ router.post("/crearcliente", function(req, res, next) {
     });
 });
 
-//editar el cliente, menos mascotas ya que corresponde a otra tabla
+// el admin edita al cliente, menos mascotas ya que corresponde a otra tabla.
 router.put("/editarcliente/:id_usuario", function(req, res, next) {
   const { id_usuario } = req.params;
   const {
