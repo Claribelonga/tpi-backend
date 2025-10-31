@@ -3,8 +3,8 @@ const db = require('../../conexion');
 
 const {hashPass} = require('@damianegreco/hashpass');
 
-//un get con paginacion para ver la lista de clientes, preguntar si es la mejor opcion
-router.get("/ver", function(req, res) {
+//El admin puede ver una lista de clientes con paginacion.
+router.get("/", function(req, res) {
   const { pagina, busqueda } = req.query;
 
   const registrosPorPagina = 4;
@@ -13,6 +13,7 @@ router.get("/ver", function(req, res) {
 
   const params = [];
 
+  //hacer una consulta de cantos registros son para dividir los registros por pag.
   let sql = `
     SELECT 
       p.id_persona, p.nombre, p.apellido, p.dni, p.telefono,
@@ -80,16 +81,15 @@ router.get("/ver", function(req, res) {
 });
 
 
-//crea un nuevo cliente
+// El admin crea un nuevo cliente
 router.post("/crearcliente", function(req, res, next) {
   const {
-    email, contraseña, id_rol,
-    nombre, apellido, dni, telefono,
+    email, contraseña, nombre, apellido, dni, telefono,
     calle, numero, piso, departamento
   } = req.body;
 
   const passHash = hashPass(contraseña);
-
+  const id_rol = 3;
   // 1. Insertar en usuarios
   const sqlUsuario = "INSERT INTO usuarios (email, contraseña, id_rol) VALUES (?, ?, ?)";
   db.query(sqlUsuario, [email, passHash, id_rol])
@@ -118,7 +118,7 @@ router.post("/crearcliente", function(req, res, next) {
     });
 });
 
-//editar el cliente, menos mascotas ya que corresponde a otra tabla
+// el admin edita al cliente, menos mascotas ya que corresponde a otra tabla.
 router.put("/editarcliente/:id_usuario", function(req, res, next) {
   const { id_usuario } = req.params;
   const {

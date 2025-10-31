@@ -1,7 +1,8 @@
 const router = require("express").Router();
 const db = require('../../conexion');
 
-router.get("/select", function(req, res, next) {
+//solo el cliente puede ver esto ya que lo necesita para los turnos
+router.get("/", function(req, res, next) {
   const sql = "SELECT * FROM especies";
 
   db.query(sql)
