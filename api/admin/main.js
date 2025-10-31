@@ -7,6 +7,8 @@ const {hashPass} = require('@damianegreco/hashpass');
 router.get("/ver", function(req, res, next) {
   const { pagina, busqueda } = req.query;
 
+  res.send ("ruta de admin andando");
+
   const registrosPorPagina = 4;
   const paginaActual = parseInt(pagina) || 1;
   const offset = (paginaActual - 1) * registrosPorPagina;
@@ -95,13 +97,13 @@ router.get("/ver", function(req, res, next) {
 //crea un nuevo cliente
 router.post("/crearcliente", function(req, res, next) {
   const {
-    email, contraseña, id_rol,
+    email, contraseña,
     nombre, apellido, dni, telefono,
     calle, numero, piso, departamento
   } = req.body;
 
   const passHash = hashPass(contraseña);
-
+  const id_rol = 3;
   // 1. Insertar en usuarios
   const sqlUsuario = "INSERT INTO usuarios (email, contraseña, id_rol) VALUES (?, ?, ?)";
   db.query(sqlUsuario, [email, passHash, id_rol])
