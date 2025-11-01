@@ -12,8 +12,9 @@ router.get("/", function(req, res) {
   const offset = (paginaActual - 1) * registrosPorPagina;
 
   const params = [];
+  const countParams = [];
 
-  //hacer una consulta de cantos registros son para dividir los registros por pag.
+  // Consulta principal con JOINs
   let sql = `
     SELECT 
       p.id_persona, p.nombre, p.apellido, p.dni, p.telefono,
@@ -27,16 +28,32 @@ router.get("/", function(req, res) {
     WHERE u.id_rol = 3
   `;
 
+  // Consulta para contar registros
+  let sqlCount = `
+    SELECT COUNT(DISTINCT p.id_persona) AS total
+    FROM personas p
+    INNER JOIN usuarios u ON p.id_usuario = u.id_usuario
+    WHERE u.id_rol = 3
+  `;
+
   if (busqueda) {
     sql += " AND CONCAT(p.nombre, ' ', p.apellido) LIKE ?";
+    sqlCount += " AND CONCAT(p.nombre, ' ', p.apellido) LIKE ?";
     params.push(`%${busqueda}%`);
+    countParams.push(`%${busqueda}%`);
   }
 
   sql += " LIMIT ? OFFSET ?";
   params.push(registrosPorPagina, offset);
 
-  db.query(sql, params)
-    .then(([rows]) => {
+  Promise.all([
+    db.query(sql, params),
+    db.query(sqlCount, countParams)
+  ])
+    .then(([[rows], [conteo]]) => {
+      const totalRegistros = conteo[0].total;
+      const totalPaginas = Math.ceil(totalRegistros / registrosPorPagina);
+
       const personasMap = {};
 
       rows.forEach(row => {
@@ -72,13 +89,20 @@ router.get("/", function(req, res) {
         }
       });
 
-      res.send(Object.values(personasMap));
+      res.send({
+        paginaActual,
+        registrosPorPagina,
+        totalRegistros,
+        totalPaginas,
+        personas: Object.values(personasMap)
+      });
     })
     .catch(error => {
-      console.error("Error en GET /ver:", error);
+      console.error("Error en GET /personas:", error);
       res.status(500).send("Ocurrió un error al obtener los datos");
     });
 });
+
 
 
 // El admin crea un nuevo cliente
