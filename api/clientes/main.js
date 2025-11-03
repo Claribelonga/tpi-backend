@@ -7,6 +7,11 @@ const {hashPass} = require('@damianegreco/hashpass');
 router.get("/", function(req, res) {
   const { pagina, busqueda } = req.query;
 
+<<<<<<< HEAD
+=======
+  // res.send ("ruta de admin andando");
+
+>>>>>>> 5e4c7b4675415218939c6f07ea8f5f5f46bd53ac
   const registrosPorPagina = 4;
   const paginaActual = parseInt(pagina) || 1;
   const offset = (paginaActual - 1) * registrosPorPagina;

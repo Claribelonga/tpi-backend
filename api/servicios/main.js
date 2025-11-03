@@ -38,8 +38,9 @@ router.get("/select", function(req, res, next) {
 
 //el admin crea un servicio
 router.post("/crearservicio", function(req, res, next) {
-  const { nombre, estado, precio } = req.body;
+  const { nombre, precio } = req.body;
 
+  const estado = 1;
   const sql = "INSERT INTO servicios (nombre, estado, precio) VALUES (?, ?, ?)";
 
   db.query(sql, [nombre, estado, precio])
