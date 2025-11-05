@@ -2,7 +2,7 @@ const router = require("express").Router();
 const db = require('../../conexion');
 const { auth } = require('../middleware'); // Middleware de autenticación
 
-//me trae un listado de mascotas segun el cliente que se logeo
+//me trae un listado de mascotas segun el cliente que se logeo, usar este tmb para el select
 router.get("/", auth, function(req, res) {
   const userId = req.user?.id;
 
@@ -113,7 +113,7 @@ router.post("/nuevamascota", auth, function(req, res) {
     });
 });
 
-router.put("/mascotas/:id_mascota", auth, function(req, res) {
+router.put("/editarmascota/:id_mascota", auth, function(req, res) {
   const userId = req.user?.id;
   const { id_mascota } = req.params;
 

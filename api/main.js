@@ -10,7 +10,8 @@ const clientesRouter = require("./clientes/main");
 const veterinariosRouter = require("./veterinarios/main");
 const especiesRouter = require("./especies/main");
 const publicoRouter = require('./publico/main');
-const mascotasRouter = require('./mascotas/main')
+const mascotasRouter = require('./mascotas/main');
+const turnosRouter = require('./turnos/main');
 const pruebasRouter = require('./pruebas')
 //validaruser va a ser nuestro middleware
 
@@ -23,6 +24,7 @@ router.use("/veterinarios" , veterinariosRouter);
 router.use("/especies" , especiesRouter);
 router.use("/publico" , publicoRouter);
 router.use("/mascotas" , mascotasRouter);
+router.use("/turnos" , turnosRouter);
 router.use("/pruebas" , pruebasRouter);
 //endpoint
 router.get('/', function(req, res, next){
