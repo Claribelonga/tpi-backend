@@ -40,6 +40,7 @@ router.get("/select", function(req, res, next) {
 router.post("/crearservicio", function(req, res, next) {
   const { nombre, precio } = req.body;
 
+  //el estado es "activo" cuando se lo crea.
   const estado = 1;
   const sql = "INSERT INTO servicios (nombre, estado, precio) VALUES (?, ?, ?)";
 
@@ -54,13 +55,13 @@ router.post("/crearservicio", function(req, res, next) {
 });
 
 //el admin cambia el servicio
-router.put("/modificarestado/:id", function(req, res, next) {
+router.put("/modificarservicio/:id", function(req, res, next) {
   const { id } = req.params;
-  const { estado } = req.body;
+  const { nombre, precio, estado } = req.body;
 //modificar todo
-  const sql = "UPDATE servicios SET estado = ? WHERE id_servicio = ?";
+  const sql = "UPDATE servicios SET nombre = ?, precio = ?, estado = ? WHERE id_servicio = ?";
 
-  db.query(sql, [estado, id])
+  db.query(sql, [nombre, precio, estado, id])
     .then(([result]) => {
       if (result.affectedRows === 0) {
         res.status(404).send("Servicio no encontrado");

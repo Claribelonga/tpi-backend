@@ -2,7 +2,7 @@ const router = require("express").Router();
 const db = require('../../conexion');
 const { auth } = require('../middleware'); // Middleware de autenticación
 
-//me trae un listado de mascotas segun el cliente que se logeo, usar este tmb para el select
+//me trae un listado de mascotas segun el cliente que se logueo
 router.get("/", auth, function(req, res) {
   const userId = req.user?.id;
 
@@ -33,9 +33,12 @@ router.get("/", auth, function(req, res) {
           m.altura,
           m.peso,
           r.id_raza,
-          r.nombre AS nombre_raza
+          r.nombre AS nombre_raza,
+          e.id_especie,
+          e.nombre AS nombre_especie
         FROM mascotas m
         INNER JOIN razas r ON m.id_raza = r.id_raza
+        INNER JOIN especies e ON r.id_especie = e.id_especie
         WHERE m.id_persona = ?
       `;
 
@@ -53,6 +56,7 @@ router.get("/", auth, function(req, res) {
       res.status(500).send("Ocurrió un error al identificar al usuario");
     });
 });
+
 //al guardar la nueva mascota usa el id del cliente logueado y lo crea.
 router.post("/nuevamascota", auth, function(req, res) {
   const userId = req.user?.id;

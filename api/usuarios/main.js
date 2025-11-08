@@ -8,7 +8,7 @@ const {hashPass} = require('@damianegreco/hashpass');
 
 router.use("/login", loginRouter);
 
-//perfil
+//perfil, segun el cliente que se registre
 router.get("/perfil", auth, function(req, res) {
   const id_usuario = req.user?.id; // viene del token
 
@@ -40,7 +40,7 @@ router.get("/perfil", auth, function(req, res) {
     });
 });
 
-//lo usa el cliente para registrarse
+//lo usa el cliente para registrarse, sin loguearse
 router.post("/registro", function(req, res, next) {
   const {
     email, contraseña,

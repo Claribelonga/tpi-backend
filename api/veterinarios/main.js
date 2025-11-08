@@ -91,9 +91,7 @@ router.get("/", function(req, res) {
     });
 });
 
-
-
-
+//el admin crea un nuevo veterinario
 router.post("/crearveterinario", function(req, res, next) {
   const {
     email, contraseña, nombre, apellido, dni, telefono,
@@ -137,7 +135,7 @@ router.post("/crearveterinario", function(req, res, next) {
 });
 
 
-//editar el veterinario, menos mascotas ya que corresponde a otra tabla
+//el admin editar el veterinario 
 router.put("/editarvete/:id_usuario", function(req, res, next) {
   const { id_usuario } = req.params;
   const {
