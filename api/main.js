@@ -17,12 +17,12 @@ const pruebasRouter = require('./pruebas')
 //validaruser va a ser nuestro middleware
 
 //router.use("/alumnos", middleware, alumnosRouter);
-router.use("/usuarios" , usuariosRouter); //mixto, cliente y usuario no registrado
-router.use("/servicios" , serviciosRouter); //admin
-router.use("/clientes", auth, verificarRol(1), clientesRouter); //admin
+router.use("/usuarios" , usuariosRouter); //mixto, cliente y usuario no registrado, lito
+router.use("/servicios" , auth, verificarRol(1), serviciosRouter); //admin, lito
+router.use("/clientes", auth, verificarRol(1), clientesRouter); //admin, lito
 router.use("/veterinarios" , veterinariosRouter); //mixto admin y vete
-router.use("/especies" , auth, verificarRol(3), especiesRouter); //cliente
-router.use("/publico" , publicoRouter);// sin verificar rol
+router.use("/especies" , auth, verificarRol(3), especiesRouter); //cliente, lito
+router.use("/publico" , publicoRouter);// sin verificar rol, lito
 router.use("/mascotas" , auth, verificarRol(3), mascotasRouter); //cliente
 router.use("/turnos" , turnosRouter);//mixto cliente y vete
 router.use("/pruebas" , pruebasRouter);
