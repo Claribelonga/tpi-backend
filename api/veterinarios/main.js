@@ -4,13 +4,16 @@ const db = require('../../conexion');
 const {hashPass} = require('@damianegreco/hashpass');
 
 //El admin puede ver la lista de veterinarios con paginacion.
-router.get("/", function(req, res, next) {
+router.get("/", function(req, res) {
   const { pagina, busqueda } = req.query;
 
   const registrosPorPagina = 4;
   const paginaActual = parseInt(pagina) || 1;
   const offset = (paginaActual - 1) * registrosPorPagina;
-  //crear el count
+
+  const params = [];
+  const countParams = [];
+
   let sqlPersonas = `
     SELECT 
       p.id_persona, p.nombre, p.apellido, p.dni, p.telefono, p.id_direccion, p.id_usuario,
@@ -24,19 +27,32 @@ router.get("/", function(req, res, next) {
     WHERE u.id_rol = 2
   `;
 
-  const params = [];
+  let sqlCount = `
+    SELECT COUNT(DISTINCT p.id_persona) AS total
+    FROM personas p
+    JOIN usuarios u ON p.id_usuario = u.id_usuario
+    INNER JOIN veterinarios v ON p.id_persona = v.id_persona
+    WHERE u.id_rol = 2
+  `;
 
-  // Búsqueda parcial por nombre y apellido
   if (busqueda) {
     sqlPersonas += " AND CONCAT(p.nombre, ' ', p.apellido) LIKE ?";
+    sqlCount += " AND CONCAT(p.nombre, ' ', p.apellido) LIKE ?";
     params.push(`%${busqueda}%`);
+    countParams.push(`%${busqueda}%`);
   }
 
   sqlPersonas += " LIMIT ? OFFSET ?";
   params.push(registrosPorPagina, offset);
 
-  db.query(sqlPersonas, params)
-    .then(([personas]) => {
+  Promise.all([
+    db.query(sqlPersonas, params),
+    db.query(sqlCount, countParams)
+  ])
+    .then(([[personas], [conteo]]) => {
+      const totalRegistros = conteo[0].total;
+      const totalPaginas = Math.ceil(totalRegistros / registrosPorPagina);
+
       const resultadoFinal = personas.map(p => ({
         id_persona: p.id_persona,
         nombre: p.nombre,
@@ -61,7 +77,13 @@ router.get("/", function(req, res, next) {
         }
       }));
 
-      res.send(resultadoFinal);
+      res.send({
+        paginaActual,
+        registrosPorPagina,
+        totalRegistros,
+        totalPaginas,
+        veterinarios: resultadoFinal
+      });
     })
     .catch(error => {
       console.error("Error en GET /veterinarios:", error);
@@ -69,8 +91,7 @@ router.get("/", function(req, res, next) {
     });
 });
 
-
-
+//el admin crea un nuevo veterinario
 router.post("/crearveterinario", function(req, res, next) {
   const {
     email, contraseña, nombre, apellido, dni, telefono,
@@ -114,7 +135,7 @@ router.post("/crearveterinario", function(req, res, next) {
 });
 
 
-//editar el veterinario, menos mascotas ya que corresponde a otra tabla
+//el admin editar el veterinario 
 router.put("/editarvete/:id_usuario", function(req, res, next) {
   const { id_usuario } = req.params;
   const {
@@ -161,10 +182,6 @@ router.put("/editarvete/:id_usuario", function(req, res, next) {
       res.status(500).send("Ocurrió un error al actualizar el perfil");
     });
 });
-
-
-
-
 
 
 module.exports = router;

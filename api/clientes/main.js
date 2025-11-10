@@ -7,96 +7,118 @@ const {hashPass} = require('@damianegreco/hashpass');
 router.get("/", function(req, res) {
   const { pagina, busqueda } = req.query;
 
-  // res.send ("ruta de admin andando");
-
   const registrosPorPagina = 4;
   const paginaActual = parseInt(pagina) || 1;
   const offset = (paginaActual - 1) * registrosPorPagina;
 
+  const filtros = [];
   const params = [];
   const countParams = [];
 
-  // Consulta principal con JOINs
-  let sql = `
-    SELECT 
-      p.id_persona, p.nombre, p.apellido, p.dni, p.telefono,
-      d.id_direccion, d.calle, d.numero, d.piso, d.departamento,
-      u.id_usuario, u.email,
-      m.id_mascota, m.nombre AS nombre_mascota
-    FROM personas p
-    INNER JOIN direcciones d ON p.id_direccion = d.id_direccion
-    INNER JOIN usuarios u ON p.id_usuario = u.id_usuario
-    LEFT JOIN mascotas m ON p.id_persona = m.id_persona
-    WHERE u.id_rol = 3
-  `;
-
-  // Consulta para contar registros
-  let sqlCount = `
-    SELECT COUNT(DISTINCT p.id_persona) AS total
-    FROM personas p
-    INNER JOIN usuarios u ON p.id_usuario = u.id_usuario
-    WHERE u.id_rol = 3
-  `;
+  let where = "WHERE u.id_rol = 3";
 
   if (busqueda) {
-    sql += " AND CONCAT(p.nombre, ' ', p.apellido) LIKE ?";
-    sqlCount += " AND CONCAT(p.nombre, ' ', p.apellido) LIKE ?";
-    params.push(`%${busqueda}%`);
-    countParams.push(`%${busqueda}%`);
+    where += " AND CONCAT(p.nombre, ' ', p.apellido) LIKE ?";
+    filtros.push(`%${busqueda}%`);
   }
 
-  sql += " LIMIT ? OFFSET ?";
-  params.push(registrosPorPagina, offset);
+  // 1. Obtener total de personas
+  const sqlCount = `
+    SELECT COUNT(*) AS total
+    FROM personas p
+    INNER JOIN usuarios u ON p.id_usuario = u.id_usuario
+    ${where}
+  `;
 
+  // 2. Obtener los id_persona paginados
+  const sqlIds = `
+    SELECT p.id_persona
+    FROM personas p
+    INNER JOIN usuarios u ON p.id_usuario = u.id_usuario
+    ${where}
+    ORDER BY p.id_persona
+    LIMIT ? OFFSET ?
+  `;
+
+  // 3. Luego traer los datos completos con JOINs
   Promise.all([
-    db.query(sql, params),
-    db.query(sqlCount, countParams)
+    db.query(sqlCount, filtros),
+    db.query(sqlIds, [...filtros, registrosPorPagina, offset])
   ])
-    .then(([[rows], [conteo]]) => {
+    .then(([[conteo], [ids]]) => {
       const totalRegistros = conteo[0].total;
       const totalPaginas = Math.ceil(totalRegistros / registrosPorPagina);
 
-      const personasMap = {};
+      if (!ids.length) {
+        return res.send({
+          paginaActual,
+          registrosPorPagina,
+          totalRegistros,
+          totalPaginas,
+          personas: []
+        });
+      }
 
-      rows.forEach(row => {
-        const id = row.id_persona;
+      const idList = ids.map(p => p.id_persona);
+      const placeholders = idList.map(() => "?").join(",");
 
-        if (!personasMap[id]) {
-          personasMap[id] = {
-            id_persona: id,
-            nombre: row.nombre,
-            apellido: row.apellido,
-            dni: row.dni,
-            telefono: row.telefono,
-            direccion: {
-              id_direccion: row.id_direccion,
-              calle: row.calle,
-              numero: row.numero,
-              piso: row.piso,
-              departamento: row.departamento
-            },
-            usuario: {
-              id_usuario: row.id_usuario,
-              email: row.email
-            },
-            mascotas: []
-          };
-        }
+      const sqlFinal = `
+        SELECT 
+          p.id_persona, p.nombre, p.apellido, p.dni, p.telefono,
+          d.id_direccion, d.calle, d.numero, d.piso, d.departamento,
+          u.id_usuario, u.email,
+          m.id_mascota, m.nombre AS nombre_mascota
+        FROM personas p
+        INNER JOIN direcciones d ON p.id_direccion = d.id_direccion
+        INNER JOIN usuarios u ON p.id_usuario = u.id_usuario
+        LEFT JOIN mascotas m ON p.id_persona = m.id_persona
+        WHERE p.id_persona IN (${placeholders})
+        ORDER BY p.id_persona
+      `;
 
-        if (row.id_mascota) {
-          personasMap[id].mascotas.push({
-            id_mascota: row.id_mascota,
-            nombre: row.nombre_mascota
-          });
-        }
-      });
+      return db.query(sqlFinal, idList).then(([rows]) => {
+        const personasMap = {};
 
-      res.send({
-        paginaActual,
-        registrosPorPagina,
-        totalRegistros,
-        totalPaginas,
-        personas: Object.values(personasMap)
+        rows.forEach(row => {
+          const id = row.id_persona;
+
+          if (!personasMap[id]) {
+            personasMap[id] = {
+              id_persona: id,
+              nombre: row.nombre,
+              apellido: row.apellido,
+              dni: row.dni,
+              telefono: row.telefono,
+              direccion: {
+                id_direccion: row.id_direccion,
+                calle: row.calle,
+                numero: row.numero,
+                piso: row.piso,
+                departamento: row.departamento
+              },
+              usuario: {
+                id_usuario: row.id_usuario,
+                email: row.email
+              },
+              mascotas: []
+            };
+          }
+
+          if (row.id_mascota) {
+            personasMap[id].mascotas.push({
+              id_mascota: row.id_mascota,
+              nombre: row.nombre_mascota
+            });
+          }
+        });
+
+        res.send({
+          paginaActual,
+          registrosPorPagina,
+          totalRegistros,
+          totalPaginas,
+          personas: Object.values(personasMap)
+        });
       });
     })
     .catch(error => {
@@ -104,8 +126,6 @@ router.get("/", function(req, res) {
       res.status(500).send("Ocurrió un error al obtener los datos");
     });
 });
-
-
 
 // El admin crea un nuevo cliente
 router.post("/crearcliente", function(req, res, next) {

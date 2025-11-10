@@ -1,5 +1,6 @@
 const router = require("express").Router();
 const db = require('../../conexion');
+const { auth } = require('../middleware'); // Middleware que verifica el token
 
 const loginRouter = require("./login");
 
@@ -7,13 +8,17 @@ const {hashPass} = require('@damianegreco/hashpass');
 
 router.use("/login", loginRouter);
 
-//perfil
-router.get("/perfil/:id_usuario", function(req, res, next) {
-  const { id_usuario } = req.params;
+//perfil, segun el cliente que se registre
+router.get("/perfil", auth, function(req, res) {
+  const id_usuario = req.user?.id; // viene del token
+
+  if (!id_usuario) {
+    return res.status(401).send("Usuario no identificado");
+  }
 
   const sql = `
     SELECT 
-      u.id_usuario, u.email, u.contraseña,
+      u.id_usuario, u.email,
       p.id_persona, p.nombre, p.apellido, p.dni, p.telefono, p.id_direccion,
       d.calle, d.numero, d.piso, d.departamento
     FROM usuarios u
@@ -25,18 +30,17 @@ router.get("/perfil/:id_usuario", function(req, res, next) {
   db.query(sql, [id_usuario])
     .then(([rows]) => {
       if (rows.length === 0) {
-        return res.status(404).send("Usuario no encontrado");
+        return res.status(404).send("Perfil no encontrado");
       }
-      res.send(rows[0]); // solo uno
+      res.send(rows[0]);
     })
     .catch((error) => {
-      console.error("Error en GET /perfil/:id_usuario:", error);
-      res.status(500).send("Ocurrió un error al obtener el perfil del usuario");
+      console.error("Error en GET /perfil:", error);
+      res.status(500).send("Ocurrió un error al obtener el perfil");
     });
 });
 
-
-//lo usa el cliente para registrarse
+//lo usa el cliente para registrarse, sin loguearse
 router.post("/registro", function(req, res, next) {
   const {
     email, contraseña,
@@ -74,9 +78,13 @@ router.post("/registro", function(req, res, next) {
     });
 });
 
-//el cliente actualiza su perfil
-router.put("/editarperfil/:id_usuario", function(req, res, next) {
-  const { id_usuario } = req.params;
+router.put("/editarperfil", auth, function(req, res) {
+  const id_usuario = req.user?.id;
+
+  if (!id_usuario) {
+    return res.status(401).send("Usuario no autenticado");
+  }
+
   const {
     email, contraseña,
     nombre, apellido, dni, telefono,
@@ -85,7 +93,7 @@ router.put("/editarperfil/:id_usuario", function(req, res, next) {
 
   const passHash = hashPass(contraseña);
 
-  // 1. Actualizar usuarios (sin id_rol)
+  // 1. Actualizar usuarios
   const sqlUsuario = "UPDATE usuarios SET email = ?, contraseña = ? WHERE id_usuario = ?";
   db.query(sqlUsuario, [email, passHash, id_usuario])
     .then(() => {
@@ -93,13 +101,13 @@ router.put("/editarperfil/:id_usuario", function(req, res, next) {
       const sqlPersona = "UPDATE personas SET nombre = ?, apellido = ?, dni = ?, telefono = ? WHERE id_usuario = ?";
       return db.query(sqlPersona, [nombre, apellido, dni, telefono, id_usuario]);
     })
-    .then(([rows]) => {
-      // 3. Obtener id_direccion desde personas
+    .then(() => {
+      // 3. Obtener id_direccion
       const sqlGetDireccion = "SELECT id_direccion FROM personas WHERE id_usuario = ?";
       return db.query(sqlGetDireccion, [id_usuario]);
     })
     .then(([rows]) => {
-      if (rows.length === 0) throw new Error("No se encontró la persona asociada al usuario");
+      if (!rows.length) throw new Error("No se encontró la persona asociada al usuario");
 
       const id_direccion = rows[0].id_direccion;
 
@@ -108,13 +116,12 @@ router.put("/editarperfil/:id_usuario", function(req, res, next) {
       return db.query(sqlDireccion, [calle, numero, piso, departamento, id_direccion]);
     })
     .then(() => {
-      res.status(200).send("Perfil completo actualizado");
+      res.status(200).send("Perfil actualizado correctamente");
     })
     .catch((error) => {
-      console.error("Error al actualizar perfil completo:", error);
+      console.error("Error al actualizar perfil:", error);
       res.status(500).send("Ocurrió un error al actualizar el perfil");
     });
 });
-
 
 module.exports = router;

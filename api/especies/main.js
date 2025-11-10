@@ -1,7 +1,7 @@
 const router = require("express").Router();
 const db = require('../../conexion');
 
-//solo el cliente puede ver esto ya que lo necesita para los turnos
+//el cliente tiene un select con todas las especies disponibles
 router.get("/", function(req, res, next) {
   const sql = "SELECT * FROM especies";
 
@@ -15,12 +15,13 @@ router.get("/", function(req, res, next) {
     });
 });
 
-router.get("/raza", function(req, res, next) {
+//Dependiendo la especie que se seleccione, el cliente puede ver las razas disponibles
+router.get("/razas", function(req, res, next) {
   const {id_especie} = req.query;
 
   // Validación: id_especies es obligatorio
   if (!id_especie) {
-    return res.status(400).send("El parámetro 'id_especies' es requerido");
+    return res.status(400).send("El parámetro 'id_especie' es requerido");
   }
 
   const sql = "SELECT * FROM razas WHERE id_especie = ? ";
