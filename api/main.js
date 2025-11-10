@@ -1,4 +1,6 @@
 const router = require("express").Router();
+const { auth, verificarRol } = require("./middleware");
+
 
 //const middleware = require('./middleware');
 
@@ -19,7 +21,7 @@ const pruebasRouter = require('./pruebas')
 router.use("/usuarios" , usuariosRouter);
 router.use("/servicios" , serviciosRouter);
 router.use("/especialidades" , especialidadesRouter);
-router.use("/clientes" , clientesRouter);
+router.use("/clientes", auth, verificarRol(1), clientesRouter);
 router.use("/veterinarios" , veterinariosRouter);
 router.use("/especies" , especiesRouter);
 router.use("/publico" , publicoRouter);
