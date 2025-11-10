@@ -79,7 +79,7 @@ router.post("/registro", function(req, res, next) {
     });
 });
 
-router.put("/editarperfil", auth, verificarRol(2), function(req, res) {
+router.put("/editarperfil", auth, verificarRol(3), function(req, res) {
   const id_usuario = req.user?.id;
 
   if (!id_usuario) {

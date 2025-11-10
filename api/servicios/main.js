@@ -1,7 +1,6 @@
 const router = require("express").Router();
 const db = require('../../conexion');
-
-
+const { auth, verificarRol } = require("../middleware");
 
 router.get("/", function(req, res, next) {
   const { pagina } = req.query;
