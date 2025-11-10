@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const db = require('../../conexion');
-const { auth } = require('../middleware'); // Middleware que verifica el token
+const { auth, verificarRol } = require("../middleware");
+
 
 const loginRouter = require("./login");
 
@@ -9,7 +10,7 @@ const {hashPass} = require('@damianegreco/hashpass');
 router.use("/login", loginRouter);
 
 //perfil, segun el cliente que se registre
-router.get("/perfil", auth, function(req, res) {
+router.get("/perfil",  auth, verificarRol(3), function(req, res) {
   const id_usuario = req.user?.id; // viene del token
 
   if (!id_usuario) {
@@ -78,7 +79,7 @@ router.post("/registro", function(req, res, next) {
     });
 });
 
-router.put("/editarperfil", auth, function(req, res) {
+router.put("/editarperfil", auth, verificarRol(2), function(req, res) {
   const id_usuario = req.user?.id;
 
   if (!id_usuario) {

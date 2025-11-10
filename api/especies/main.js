@@ -1,5 +1,6 @@
 const router = require("express").Router();
 const db = require('../../conexion');
+const { auth, verificarRol } = require("../middleware");
 
 //el cliente tiene un select con todas las especies disponibles
 router.get("/", function(req, res, next) {

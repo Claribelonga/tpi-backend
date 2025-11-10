@@ -1,5 +1,6 @@
 const router = require("express").Router();
 const db = require('../../conexion');
+const { auth, verificarRol } = require("../middleware");
 
 const {hashPass} = require('@damianegreco/hashpass');
 
@@ -165,7 +166,7 @@ router.post("/crearcliente", function(req, res, next) {
 });
 
 // el admin edita al cliente, menos mascotas ya que corresponde a otra tabla.
-router.put("/editarcliente/:id_usuario", function(req, res, next) {
+router.put("/editarcliente/:id_usuario",  auth, verificarRol(3), function(req, res, next) {
   const { id_usuario } = req.params;
   const {
     email, contraseña,
