@@ -1,10 +1,11 @@
 const router = require("express").Router();
 const db = require('../../conexion');
+const { auth, verificarRol } = require("../middleware");
 
 const {hashPass} = require('@damianegreco/hashpass');
 
 //El admin puede ver la lista de veterinarios con paginacion.
-router.get("/", function(req, res) {
+router.get("/", auth, verificarRol(1), function(req, res) {
   const { pagina, busqueda } = req.query;
 
   const registrosPorPagina = 4;
@@ -91,8 +92,47 @@ router.get("/", function(req, res) {
     });
 });
 
+router.get("/perfil", auth, verificarRol(2), function(req, res) {
+  const id_usuario = req.user?.id;
+
+  if (!id_usuario) {
+    return res.status(401).send("Usuario no identificado");
+  }
+
+  const sql = `
+      SELECT 
+          -- Datos de usuario y persona
+          u.id_usuario, u.email,
+          p.id_persona, p.nombre, p.apellido, p.dni, p.telefono, p.id_direccion,
+          d.calle, d.numero, d.piso, d.departamento,
+
+          -- Datos del veterinario
+          v.id_veterinario, v.matricula, v.id_especialidad,
+          e.nombre AS nombre_especialidad
+        FROM usuarios u
+        JOIN personas p ON u.id_usuario = p.id_usuario
+        JOIN direcciones d ON p.id_direccion = d.id_direccion
+        JOIN veterinarios v ON p.id_persona = v.id_persona
+        JOIN especialidades e ON v.id_especialidad = e.id_especialidad
+        WHERE u.id_usuario = ?
+  `;
+
+  db.query(sql, [id_usuario])
+    .then(([rows]) => {
+      if (rows.length === 0) {
+        return res.status(404).send("Perfil no encontrado");
+      }
+      res.send(rows[0]);
+    })
+    .catch((error) => {
+      console.error("Error en GET /perfil:", error);
+      res.status(500).send("Ocurrió un error al obtener el perfil");
+    });
+});
+
+
 //el admin crea un nuevo veterinario
-router.post("/crearveterinario", function(req, res, next) {
+router.post("/crearveterinario", auth, verificarRol(1), function(req, res, next) {
   const {
     email, contraseña, nombre, apellido, dni, telefono,
     calle, numero, piso, departamento,
@@ -136,7 +176,7 @@ router.post("/crearveterinario", function(req, res, next) {
 
 
 //el admin editar el veterinario 
-router.put("/editarvete/:id_usuario", function(req, res, next) {
+router.put("/editarvete/:id_usuario", auth, verificarRol(1), function(req, res, next) {
   const { id_usuario } = req.params;
   const {
     email, contraseña,
