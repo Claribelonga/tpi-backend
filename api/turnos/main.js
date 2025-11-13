@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../../conexion');
-const { auth } = require('../middleware');
+const { auth, verificarRol } = require("../middleware");
 
 //veo los turnos de todos los animales segun el cliente logeado y un filtro 
-router.get("/cliente", auth, function(req, res) {
+router.get("/cliente", auth, verificarRol(3), function(req, res) {
   const userId = req.user?.id;
   const { id_mascota } = req.query;
 
@@ -62,7 +62,7 @@ router.get("/cliente", auth, function(req, res) {
 });
 
 //el vete que se logueo puede ver sus turnos asignados.
-router.get("/veterinario", auth, async function(req, res) {
+router.get("/veterinario", auth, verificarRol(2),  async function(req, res) {
   const userId = req.user?.id;
 
   if (!userId) {
@@ -112,8 +112,57 @@ router.get("/veterinario", auth, async function(req, res) {
   }
 });
 
-//se encarga de traer el proximo turno comparando la fecha del turno con el de la compus
-router.get("/proximo", auth, async function(req, res) {
+//obtengo los datos de la mascota y su dueno, dependiendo del id_mascota.
+router.get("/fichadatos", auth, verificarRol(2), function(req, res) {
+  const { id_mascota } = req.query;
+
+  if (!id_mascota) {
+    return res.status(400).send("Falta el parámetro id_mascota");
+  }
+
+  const sql = `
+    SELECT 
+      -- Datos del dueño
+      p.id_persona AS dueno_id,
+      p.nombre AS dueno_nombre,
+      p.apellido AS dueno_apellido,
+      p.dni AS dueno_dni,
+      p.telefono AS dueno_telefono,
+
+      -- Datos de la mascota
+      m.id_mascota,
+      m.nombre AS nombre_mascota,
+      m.id_raza,
+      r.nombre AS nombre_raza,
+      e.nombre AS nombre_especie,
+      m.sexo,
+      m.fecha_nacimiento,
+      m.altura,
+      m.peso,
+      m.id_persona AS id_dueno
+    FROM mascotas m
+    INNER JOIN personas p ON m.id_persona = p.id_persona
+    INNER JOIN razas r ON m.id_raza = r.id_raza
+    INNER JOIN especies e ON r.id_especie = e.id_especie
+    WHERE m.id_mascota = ?
+  `;
+
+  db.query(sql, [id_mascota])
+    .then(([result]) => {
+      if (!result.length) {
+        return res.status(404).send("No se encontró la mascota");
+      }
+
+      res.send({ ficha: result[0] });
+    })
+    .catch(error => {
+      console.error("Error al obtener ficha de datos:", error);
+      res.status(500).send("Ocurrió un error al obtener los datos");
+    });
+});
+
+//se encarga de traer el proximo turno comparando la fecha del turno con el de la compu
+router.get("/proximo", auth, verificarRol(3), async function(req, res) {
   const userId = req.user?.id;
 
   if (!userId) {
@@ -160,7 +209,7 @@ router.get("/proximo", auth, async function(req, res) {
   }
 });
 
-router.post("/sacarturno", auth, function(req, res) {
+router.post("/sacarturno", auth, verificarRol(3), function(req, res) {
   const userId = req.user?.id;
 
   if (!userId) {
