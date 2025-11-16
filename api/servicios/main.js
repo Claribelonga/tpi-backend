@@ -74,6 +74,27 @@ router.put("/modificarservicio/:id", function(req, res, next) {
     });
 });
 
+router.put("/modificarestado/:id", function(req, res, next) {
+  const { id } = req.params;
+  const { estado } = req.body;
+
+  const sql = "UPDATE servicios SET estado = ? WHERE id_servicio = ?";
+
+  db.query(sql, [estado, id])
+    .then(([result]) => {
+      if (result.affectedRows === 0) {
+        res.status(404).send("Servicio no encontrado");
+      } else {
+        res.send("Estado del servicio actualizado correctamente");
+      }
+    })
+    .catch((error) => {
+      console.error("Error en PUT /modificarestado:", error);
+      res.status(500).send("Ocurrió un error al actualizar el estado");
+    });
+});
+
+
 
 
 
