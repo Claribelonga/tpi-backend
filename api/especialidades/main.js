@@ -11,7 +11,7 @@ router.get("/select", function(req, res, next) {
     })
     .catch((error) => {
       console.error("Error en GET /select/ver:", error);
-      res.status(500).send("Ocurrió un error al obtener los servicios");
+      res.status(500).send("Ocurrió un error al obtener las especialidades");
     });
 });
 
