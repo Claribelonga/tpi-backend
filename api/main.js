@@ -20,7 +20,7 @@ const pruebasRouter = require('./pruebas')
 
 //router.use("/alumnos", middleware, alumnosRouter);
 router.use("/usuarios" , usuariosRouter); //mixto, cliente y usuario no registrado, lito
-router.use("/servicios" , auth, verificarRol(1), serviciosRouter); //admin, lito
+router.use("/servicios" , serviciosRouter); //admin, vete lito
 router.use("/clientes", auth, verificarRol(1), clientesRouter); //admin, lito
 router.use("/veterinarios" , veterinariosRouter); //mixto admin y vete
 router.use("/especies" , auth, verificarRol(3), especiesRouter); //cliente, lito

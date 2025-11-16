@@ -2,7 +2,7 @@ const router = require("express").Router();
 const db = require('../../conexion');
 const { auth, verificarRol } = require("../middleware");
 
-router.get("/", function(req, res, next) {
+router.get("/", auth, verificarRol(1), function(req, res, next) {
   const { pagina } = req.query;
 
   const registrosPorPagina = 4;
@@ -22,7 +22,7 @@ router.get("/", function(req, res, next) {
 });
 
 
-router.get("/select", function(req, res, next) {
+router.get("/select", auth, verificarRol(2), function(req, res, next) {
   const sql = "SELECT * FROM servicios";
 
   db.query(sql)
@@ -36,7 +36,7 @@ router.get("/select", function(req, res, next) {
 });
 
 //el admin crea un servicio
-router.post("/crearservicio", function(req, res, next) {
+router.post("/crearservicio", auth, verificarRol(1), function(req, res, next) {
   const { nombre, precio } = req.body;
 
   //el estado es "activo" cuando se lo crea.
@@ -54,7 +54,7 @@ router.post("/crearservicio", function(req, res, next) {
 });
 
 //el admin cambia el servicio
-router.put("/modificarservicio/:id", function(req, res, next) {
+router.put("/modificarservicio/:id", auth, verificarRol(1), function(req, res, next) {
   const { id } = req.params;
   const { nombre, precio, estado } = req.body;
 //modificar todo
@@ -74,7 +74,7 @@ router.put("/modificarservicio/:id", function(req, res, next) {
     });
 });
 
-router.put("/modificarestado/:id", function(req, res, next) {
+router.put("/modificarestado/:id", auth, verificarRol(1), function(req, res, next) {
   const { id } = req.params;
   const { estado } = req.body;
 

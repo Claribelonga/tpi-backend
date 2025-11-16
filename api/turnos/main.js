@@ -62,7 +62,7 @@ router.get("/cliente", auth, verificarRol(3), function(req, res) {
 });
 
 //el vete que se logueo puede ver sus turnos asignados.
-router.get("/veterinario", auth, verificarRol(2),  async function(req, res) {
+router.get("/veterinario", auth, verificarRol(2), async function(req, res) {
   const userId = req.user?.id;
 
   if (!userId) {
@@ -75,7 +75,6 @@ router.get("/veterinario", auth, verificarRol(2),  async function(req, res) {
     if (!personas.length) {
       throw new Error("No se encontró la persona asociada al usuario");
     }
-
     const id_persona = personas[0].id_persona;
 
     // 2. Obtener id_veterinario
@@ -83,11 +82,11 @@ router.get("/veterinario", auth, verificarRol(2),  async function(req, res) {
     if (!veterinarios.length) {
       throw new Error("No sos un veterinario registrado");
     }
-
     const id_veterinario = veterinarios[0].id_veterinario;
 
-    // 3. Obtener turnos asignados al veterinario
-    const sqlTurnos = `
+    // 3. Armar filtros dinámicos
+    const { servicio, fecha } = req.query; // ej: /veterinario?servicio=Vacunación&fecha=2025-11-16
+    let sqlTurnos = `
       SELECT 
         t.id_turno, t.fecha, t.hora, t.estado,
         s.nombre AS nombre_servicio,
@@ -97,10 +96,22 @@ router.get("/veterinario", auth, verificarRol(2),  async function(req, res) {
       INNER JOIN mascotas m ON t.id_mascota = m.id_mascota
       INNER JOIN personas pc ON m.id_persona = pc.id_persona
       WHERE t.id_veterinario = ?
-      ORDER BY t.fecha DESC, t.hora DESC
     `;
+    const params = [id_veterinario];
 
-    const [turnos] = await db.query(sqlTurnos, [id_veterinario]);
+    if (servicio) {
+      sqlTurnos += " AND s.nombre LIKE ?";
+      params.push(`%${servicio}%`);
+    }
+    if (fecha) {
+      sqlTurnos += " AND DATE(t.fecha) = ?";
+      params.push(fecha);
+    }
+
+    sqlTurnos += " ORDER BY t.fecha DESC, t.hora DESC";
+
+    // 4. Ejecutar consulta
+    const [turnos] = await db.query(sqlTurnos, params);
 
     res.send({ turnos });
 
