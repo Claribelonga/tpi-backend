@@ -116,7 +116,7 @@ router.post("/", auth, verificarRol(2), function(req, res) {
       res.status(500).send("Ocurrió un error al registrar el diagnóstico");
     });
 });
-
+/*
 router.post("/", auth, verificarRol(2), (req, res) => {
   const { diagnostico, tratamiento, observaciones } = req.body;
 
@@ -137,6 +137,6 @@ router.post("/", auth, verificarRol(2), (req, res) => {
       console.error("Error al registrar diagnóstico:", error);
       res.status(500).send("Ocurrió un error al registrar el diagnóstico");
     });
-});
+});*/
 
 module.exports = router;
