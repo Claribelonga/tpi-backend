@@ -2,25 +2,40 @@ const router = require("express").Router();
 const db = require('../../conexion');
 const { auth, verificarRol } = require("../middleware");
 
-router.get("/", function(req, res, next) {
-  const { pagina } = req.query;
-
+router.get("/", function(req, res) {
+  const pagina = parseInt(req.query.pagina) || 1;
   const registrosPorPagina = 4;
-  const paginaActual = parseInt(pagina) || 2;
-  const offset = (paginaActual - 1) * registrosPorPagina;
+  const offset = (pagina - 1) * registrosPorPagina;
+  const sqlDatos = "SELECT * FROM servicios LIMIT ? OFFSET ?";
+  const sqlTotal = "SELECT COUNT(*) AS total FROM servicios";
 
-  const sql = "SELECT * FROM servicios LIMIT ? OFFSET ?";
-
-  db.query(sql, [registrosPorPagina, offset])
+  // Primero obtengo los registros de la página
+  db.query(sqlDatos, [registrosPorPagina, offset])
     .then(([rows]) => {
-      res.send(rows);
+
+      // Ahora consulto el total de registros
+      db.query(sqlTotal)
+        .then(([totalRows]) => {
+          const totalRegistros = totalRows[0].total;
+          const totalPaginas = Math.ceil(totalRegistros / registrosPorPagina);
+
+          // RESPUESTA FINAL QUE EL FRONT NECESITA
+          res.send({
+            paginaActual: pagina,
+            totalPaginas: totalPaginas,
+            data: rows,
+          });
+        })
+        .catch((error) => {
+          console.error("Error en COUNT:", error);
+          res.status(500).send("Error al contar registros");
+        });
     })
     .catch((error) => {
-      console.error("Error en GET /servicios/ver paginado:", error);
-      res.status(500).send("Ocurrió un error al obtener los servicios");
+      console.error("Error al obtener servicios paginados:", error);
+      res.status(500).send("Error al obtener servicios");
     });
 });
-
 
 router.get("/select", function(req, res, next) {
   const sql = "SELECT * FROM servicios";
@@ -56,7 +71,8 @@ router.post("/crearservicio", function(req, res, next) {
 //el admin cambia el servicio
 router.put("/modificarservicio/:id", function(req, res, next) {
   const { id } = req.params;
-  const { nombre, precio, estado } = req.body;
+  const { nombre, precio} = req.body;
+  const estado = 1;
 //modificar todo
   const sql = "UPDATE servicios SET nombre = ?, precio = ?, estado = ? WHERE id_servicio = ?";
 
@@ -73,7 +89,7 @@ router.put("/modificarservicio/:id", function(req, res, next) {
       res.status(500).send("Ocurrió un error al actualizar el estado");
     });
 });
-
+//modifica solo el estado entre activo e inactivo
 router.put("/modificarestado/:id", function(req, res, next) {
   const { id } = req.params;
   const { estado } = req.body;
@@ -93,9 +109,5 @@ router.put("/modificarestado/:id", function(req, res, next) {
       res.status(500).send("Ocurrió un error al actualizar el estado");
     });
 });
-
-
-
-
 
 module.exports = router;
