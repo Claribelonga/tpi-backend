@@ -6,7 +6,6 @@ const { auth, verificarRol } = require("../middleware");
   
 router.get("/", auth, verificarRol(1), function(req, res, next) {
 const pagina = parseInt(req.query.pagina) || 1;
-
   const registrosPorPagina = 4;
   const offset = (pagina - 1) * registrosPorPagina;
   const sqlDatos = "SELECT * FROM servicios LIMIT ? OFFSET ?";
@@ -40,7 +39,7 @@ const pagina = parseInt(req.query.pagina) || 1;
     });
 });
 
-router.get("/select", auth, verificarRol(2), function(req, res, next) {
+router.get("/select", auth, verificarRol(2,3), function(req, res, next) {
   const sql = "SELECT * FROM servicios";
 
   db.query(sql)
