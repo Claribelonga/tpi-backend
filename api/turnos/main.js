@@ -61,7 +61,7 @@ router.get("/cliente", auth, verificarRol(3), function(req, res) {
     });
 });
 
-//el vete que se logueo puede ver sus turnos asignados.
+//el vete que se logueo puede ver sus turnos asignados, no ve los cancelados
 router.get("/veterinario", auth, verificarRol(2), async function(req, res) {
   const userId = req.user?.id;
 
@@ -71,21 +71,27 @@ router.get("/veterinario", auth, verificarRol(2), async function(req, res) {
 
   try {
     // 1. Obtener id_persona del usuario
-    const [personas] = await db.query("SELECT id_persona FROM personas WHERE id_usuario = ?", [userId]);
+    const [personas] = await db.query(
+      "SELECT id_persona FROM personas WHERE id_usuario = ?",
+      [userId]
+    );
     if (!personas.length) {
       throw new Error("No se encontró la persona asociada al usuario");
     }
     const id_persona = personas[0].id_persona;
 
     // 2. Obtener id_veterinario
-    const [veterinarios] = await db.query("SELECT id_veterinario FROM veterinarios WHERE id_persona = ?", [id_persona]);
+    const [veterinarios] = await db.query(
+      "SELECT id_veterinario FROM veterinarios WHERE id_persona = ?",
+      [id_persona]
+    );
     if (!veterinarios.length) {
       throw new Error("No sos un veterinario registrado");
     }
     const id_veterinario = veterinarios[0].id_veterinario;
 
     // 3. Armar filtros dinámicos
-    const { servicio, fecha } = req.query; // ej: /veterinario?servicio=Vacunación&fecha=2025-11-16
+    const { servicio, fecha } = req.query; 
     let sqlTurnos = `
       SELECT 
         t.id_turno, t.fecha, t.hora, t.estado,
@@ -96,6 +102,7 @@ router.get("/veterinario", auth, verificarRol(2), async function(req, res) {
       INNER JOIN mascotas m ON t.id_mascota = m.id_mascota
       INNER JOIN personas pc ON m.id_persona = pc.id_persona
       WHERE t.id_veterinario = ?
+        AND t.estado IN ('pendiente', 'finalizado')   -- 👈 filtro agregado
     `;
     const params = [id_veterinario];
 
@@ -122,6 +129,7 @@ router.get("/veterinario", auth, verificarRol(2), async function(req, res) {
     }
   }
 });
+
 
 //obtengo los datos de la mascota y su dueno, dependiendo del id_mascota.
 router.get("/fichadatos", auth, verificarRol(2), function(req, res) {
@@ -275,6 +283,27 @@ router.post("/sacarturno", auth, verificarRol(3), function(req, res) {
     .catch(error => {
       console.error("Error al registrar turno:", error);
       res.status(500).send(error.message || "Ocurrió un error al registrar el turno");
+    });
+});
+router.put("/modificarestado", auth, verificarRol(2), function(req, res) {
+  const { id_turno, estado } = req.body;
+
+  if (!id_turno || typeof estado === "undefined") {
+    return res.status(400).send("Faltan datos: id_turno o estado");
+  }
+
+  const sql = "UPDATE turnos SET estado = ? WHERE id_turno = ?";
+
+  db.query(sql, [estado, id_turno])
+    .then(([result]) => {
+      if (result.affectedRows === 0) {
+        return res.status(404).send("Turno no encontrado");
+      }
+      res.status(200).send("Estado del turno actualizado correctamente");
+    })
+    .catch((error) => {
+      console.error("Error en PUT /modificarestado:", error);
+      res.status(500).send("Ocurrió un error al actualizar el estado del turno");
     });
 });
 

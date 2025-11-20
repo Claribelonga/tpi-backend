@@ -3,7 +3,7 @@ const db = require('../../conexion');
 
 router.get("/servicios", function(req, res) {
   const pagina = parseInt(req.query.pagina) || 1;
-  const registrosPorPagina = 7;
+  const registrosPorPagina = 6 ;
   const offset = (pagina - 1) * registrosPorPagina;
 
   const sqlDatos = `

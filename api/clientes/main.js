@@ -165,26 +165,24 @@ router.post("/crearcliente", function(req, res, next) {
     });
 });
 
-// el admin edita al cliente, menos mascotas ya que corresponde a otra tabla.
-router.put("/editarcliente/:id_usuario",  auth, verificarRol(3), function(req, res, next) {
+// el admin edita al cliente, menos mascotas y contra ya que corresponde a otra tabla.
+router.put("/editarcliente/:id_usuario", function(req, res, next) {
   const { id_usuario } = req.params;
   const {
-    email, contraseña,
+    email,
     nombre, apellido, dni, telefono,
     calle, numero, piso, departamento
   } = req.body;
 
-  const passHash = hashPass(contraseña);
-
-  // 1. Actualizar usuarios (sin id_rol)
-  const sqlUsuario = "UPDATE usuarios SET email = ?, contraseña = ? WHERE id_usuario = ?";
-  db.query(sqlUsuario, [email, passHash, id_usuario])
+  // 1. Actualizar usuarios (email vacía)
+  const sqlUsuario = "UPDATE usuarios SET email = ? WHERE id_usuario = ?";
+  db.query(sqlUsuario, [email, id_usuario])
     .then(() => {
       // 2. Actualizar personas
       const sqlPersona = "UPDATE personas SET nombre = ?, apellido = ?, dni = ?, telefono = ? WHERE id_usuario = ?";
       return db.query(sqlPersona, [nombre, apellido, dni, telefono, id_usuario]);
     })
-    .then(([rows]) => {
+    .then(() => {
       // 3. Obtener id_direccion desde personas
       const sqlGetDireccion = "SELECT id_direccion FROM personas WHERE id_usuario = ?";
       return db.query(sqlGetDireccion, [id_usuario]);
@@ -199,13 +197,52 @@ router.put("/editarcliente/:id_usuario",  auth, verificarRol(3), function(req, r
       return db.query(sqlDireccion, [calle, numero, piso, departamento, id_direccion]);
     })
     .then(() => {
-      res.status(200).send("Perfil completo actualizado");
+      res.status(200).send("Perfil completo actualizado (contraseña vaciada)");
     })
     .catch((error) => {
       console.error("Error al actualizar perfil completo:", error);
       res.status(500).send("Ocurrió un error al actualizar el perfil");
     });
 });
+//reestablecer contrasena
+router.put("/restablecer/:id_usuario", async function(req, res) {
+  const { id_usuario } = req.params;
+
+  try {
+    // 1. Buscar el dni en la tabla personas
+    const [personas] = await db.query(
+      "SELECT dni FROM personas WHERE id_usuario = ?",
+      [id_usuario]
+    );
+
+    if (!personas.length) {
+      return res.status(404).send("No se encontró persona asociada al usuario");
+    }
+
+    const dni = personas[0].dni;
+
+    // 2. Hashear el dni con tu librería
+    const hashedPassword = hashPass(dni.toString());
+
+    // 3. Actualizar la contraseña en la tabla usuarios
+    const [result] = await db.query(
+      "UPDATE usuarios SET contraseña = ? WHERE id_usuario = ?",
+      [hashedPassword, id_usuario]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).send("Usuario no encontrado");
+    }
+
+    // 4. Respuesta de éxito
+    res.status(200).send("Contraseña restablecida correctamente (DNI como nueva contraseña)");
+
+  } catch (error) {
+    console.error("Error en PUT /restablecer:", error);
+    res.status(500).send("Ocurrió un error al restablecer la contraseña");
+  }
+});
+
 
 
 
