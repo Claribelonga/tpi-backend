@@ -60,6 +60,43 @@ router.get("/", function(req, res) {
       res.status(500).send("Ocurrió un error al obtener los diagnósticos");
     });
 });
+router.get("/turno", auth, verificarRol(2), function(req, res) {
+  const { id_turno } = req.query;
+
+  if (!id_turno) {
+    return res.status(400).send("Falta el parámetro id_turno");
+  }
+
+  const sql = `
+    SELECT 
+      d.id_diagnostico,
+      d.id_turno,
+      d.diagnostico,
+      d.tratamiento,
+      d.observaciones,
+      d.peso_actual,
+      a.id_archivo,
+      a.nombre
+    FROM diagnosticos d
+    LEFT JOIN archivos a ON d.id_diagnostico = a.id_diagnostico
+    WHERE d.id_turno = ?
+    LIMIT 1
+  `;
+
+  db.query(sql, [id_turno])
+    .then(([rows]) => {
+      if (rows.length === 0) {
+        return res.status(404).send("No se encontró diagnóstico para este turno");
+      }
+      // devolvemos solo el primer registro
+      res.status(200).json({ diagnostico: rows[0] });
+    })
+    .catch((error) => {
+      console.error("Error en GET /turno:", error);
+      res.status(500).send("Ocurrió un error al obtener el diagnóstico");
+    });
+});
+
 
 //crea un nuevo diagnostico, dependiendo del turno y actualiza el peso
 router.post("/", auth, verificarRol(2), function(req, res) {
@@ -110,28 +147,6 @@ router.post("/", auth, verificarRol(2), function(req, res) {
     })
     .then(() => {
       res.status(201).send("Diagnóstico registrado y peso actualizado correctamente");
-    })
-    .catch((error) => {
-      console.error("Error al registrar diagnóstico:", error);
-      res.status(500).send("Ocurrió un error al registrar el diagnóstico");
-    });
-});
-
-router.post("/", auth, verificarRol(2), (req, res) => {
-  const { diagnostico, tratamiento, observaciones } = req.body;
-
-  if (!diagnostico || !tratamiento) {
-    return res.status(400).send("Faltan campos obligatorios: diagnostico y tratamiento");
-  }
-
-  const sql = `
-    INSERT INTO diagnosticos (diagnostico, tratamiento, observaciones)
-    VALUES (?, ?, ?)
-  `;
-
-  db.query(sql, [diagnostico, tratamiento, observaciones || null])
-    .then(() => {
-      res.status(201).send("Diagnóstico registrado correctamente");
     })
     .catch((error) => {
       console.error("Error al registrar diagnóstico:", error);

@@ -37,7 +37,7 @@ router.get("/", function(req, res) {
     });
 });
 
-router.get("/select", function(req, res, next) {
+router.get("/select", auth, verificarRol(2), function(req, res, next) {
   const sql = "SELECT * FROM servicios";
 
   db.query(sql)
@@ -51,7 +51,7 @@ router.get("/select", function(req, res, next) {
 });
 
 //el admin crea un servicio
-router.post("/crearservicio", function(req, res, next) {
+router.post("/crearservicio", auth, verificarRol(1), function(req, res, next) {
   const { nombre, precio } = req.body;
 
   //el estado es "activo" cuando se lo crea.
@@ -69,7 +69,7 @@ router.post("/crearservicio", function(req, res, next) {
 });
 
 //el admin cambia el servicio
-router.put("/modificarservicio/:id", function(req, res, next) {
+router.put("/modificarservicio/:id", auth, verificarRol(1), function(req, res, next) {
   const { id } = req.params;
   const { nombre, precio} = req.body;
   const estado = 1;
@@ -89,7 +89,7 @@ router.put("/modificarservicio/:id", function(req, res, next) {
       res.status(500).send("Ocurrió un error al actualizar el estado");
     });
 });
-//modifica solo el estado entre activo e inactivo
+
 router.put("/modificarestado/:id", function(req, res, next) {
   const { id } = req.params;
   const { estado } = req.body;
