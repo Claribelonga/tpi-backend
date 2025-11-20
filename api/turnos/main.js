@@ -285,6 +285,7 @@ router.post("/sacarturno", auth, verificarRol(3), function(req, res) {
       res.status(500).send(error.message || "Ocurrió un error al registrar el turno");
     });
 });
+
 router.put("/modificarestado", auth, verificarRol(2), function(req, res) {
   const { id_turno, estado } = req.body;
 

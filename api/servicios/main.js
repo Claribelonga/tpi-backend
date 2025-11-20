@@ -37,9 +37,8 @@ router.get("/", function(req, res) {
     });
 });
 
-router.get("/select", auth, verificarRol(2), function(req, res, next) {
+router.get("/select", auth, verificarRol(2,3), function(req, res, next) {
   const sql = "SELECT * FROM servicios";
-
   db.query(sql)
     .then(([rows]) => {
       res.send(rows);
