@@ -244,7 +244,4 @@ router.put("/restablecer/:id_usuario", async function(req, res) {
 });
 
 
-
-
-
 module.exports = router;
