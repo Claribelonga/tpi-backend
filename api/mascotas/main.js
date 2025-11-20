@@ -182,9 +182,4 @@ router.put("/editarmascota/:id_mascota", auth, function(req, res) {
     });
 });
 
-
-module.exports = router;
-
-
-
 module.exports = router;

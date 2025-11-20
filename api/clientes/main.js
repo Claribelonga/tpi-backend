@@ -207,7 +207,4 @@ router.put("/editarcliente/:id_usuario",  auth, verificarRol(3), function(req, r
     });
 });
 
-
-
-
 module.exports = router;
