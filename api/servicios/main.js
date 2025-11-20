@@ -40,14 +40,14 @@ const pagina = parseInt(req.query.pagina) || 1;
 });
 
 router.get("/select", auth, verificarRol(2,3), function(req, res, next) {
-  const sql = "SELECT * FROM servicios";
+  const sql = "SELECT * FROM servicios WHERE estado = 1";
 
   db.query(sql)
     .then(([rows]) => {
       res.send(rows);
     })
     .catch((error) => {
-      console.error("Error en GET /servicios/ver:", error);
+      console.error("Error en GET /servicios/select:", error);
       res.status(500).send("Ocurrió un error al obtener los servicios");
     });
 });
