@@ -2,8 +2,7 @@ const router = require("express").Router();
 const db = require('../../conexion');
 const { auth, verificarRol } = require("../middleware");
 
-
-  
+//me trae todos los servicios sin importar el estado ya que el admin se encarga de activarlos o desactivarlos.
 router.get("/", auth, verificarRol(1), function(req, res, next) {
 const pagina = parseInt(req.query.pagina) || 1;
   const registrosPorPagina = 4;
@@ -38,7 +37,7 @@ const pagina = parseInt(req.query.pagina) || 1;
       res.status(500).send("Error al obtener servicios");
     });
 });
-
+//solo ven los servicios activos
 router.get("/select", auth, verificarRol(2,3), function(req, res, next) {
   const sql = "SELECT * FROM servicios WHERE estado = 1";
 

@@ -56,6 +56,52 @@ router.get("/", auth, function(req, res) {
       res.status(500).send("Ocurrió un error al identificar al usuario");
     });
 });
+//filtro de mascotas por dni de cliente
+router.get("/select", auth, function(req, res) {
+  const { dni } = req.query;
+
+  if (!dni) {
+    return res.status(400).send("Falta el parámetro dni");
+  }
+
+  const sqlPersona = `
+    SELECT id_persona 
+    FROM personas 
+    WHERE dni = ?
+  `;
+
+  db.query(sqlPersona, [dni])
+    .then(([personas]) => {
+      if (!personas.length) {
+        return res.send({ mascotas: [] });
+      }
+
+      const idPersona = personas[0].id_persona;
+
+      const sqlMascotas = `
+        SELECT 
+          m.id_mascota,
+          m.nombre,
+          r.id_raza,
+          r.nombre AS nombre_raza,
+          e.id_especie,
+          e.nombre AS nombre_especie
+        FROM mascotas m
+        INNER JOIN razas r ON m.id_raza = r.id_raza
+        INNER JOIN especies e ON r.id_especie = e.id_especie
+        WHERE m.id_persona = ?
+      `;
+
+      return db.query(sqlMascotas, [idPersona]);
+    })
+    .then(([mascotas]) => {
+      res.send({ mascotas });
+    })
+    .catch(error => {
+      console.error("Error en GET /mascotas por DNI:", error);
+      res.status(500).send("Ocurrió un error al obtener las mascotas");
+    });
+});
 
 //al guardar la nueva mascota usa el id del cliente logueado y lo crea.
 router.post("/nuevamascota", auth, function(req, res) {

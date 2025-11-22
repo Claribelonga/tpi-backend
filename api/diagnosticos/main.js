@@ -60,6 +60,7 @@ router.get("/", function(req, res) {
       res.status(500).send("Ocurrió un error al obtener los diagnósticos");
     });
 });
+//para agenda turnos
 router.get("/turno", auth, verificarRol(2), function(req, res) {
   const { id_turno } = req.query;
 
@@ -83,18 +84,19 @@ router.get("/turno", auth, verificarRol(2), function(req, res) {
     LIMIT 1
   `;
 
-  db.query(sql, [id_turno])
-    .then(([rows]) => {
-      if (rows.length === 0) {
-        return res.status(404).send("No se encontró diagnóstico para este turno");
-      }
-      // devolvemos solo el primer registro
-      res.status(200).json({ diagnostico: rows[0] });
-    })
-    .catch((error) => {
-      console.error("Error en GET /turno:", error);
-      res.status(500).send("Ocurrió un error al obtener el diagnóstico");
-    });
+ db.query(sql, [id_turno])
+  .then(([rows]) => {
+    if (rows.length === 0) {
+      // turno existe pero sin diagnóstico
+      return res.status(200).json({ diagnostico: null });
+    }
+    res.status(200).json({ diagnostico: rows[0] });
+  })
+  .catch((error) => {
+    console.error("Error en GET /turno:", error);
+    res.status(500).send("Ocurrió un error al obtener el diagnóstico");
+  });
+
 });
 
 
@@ -135,11 +137,11 @@ router.post("/", auth, verificarRol(2), function(req, res) {
 
       // 3. Actualizar peso en mascotas usando el id_turno
       const sqlActualizarPeso = `
-        UPDATE mascotas
-        SET peso = ?
-        WHERE id_mascota = (
-          SELECT id_mascota FROM turnos WHERE id_turno = ?
-        )
+        UPDATE mascotas m
+          JOIN turnos t ON m.id_mascota = t.id_mascota
+          SET m.peso = ?
+          WHERE t.id_turno = ?
+
       `;
       promesas.push(db.query(sqlActualizarPeso, [peso_actual, id_turno]));
 
