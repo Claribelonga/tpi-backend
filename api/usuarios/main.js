@@ -125,4 +125,7 @@ router.put("/editarperfil", auth, verificarRol(3), function(req, res) {
     });
 });
 
+
+
+
 module.exports = router;

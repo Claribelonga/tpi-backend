@@ -91,7 +91,7 @@ router.get("/veterinario", auth, verificarRol(2), async function(req, res) {
     const id_veterinario = veterinarios[0].id_veterinario;
 
     // 3. Armar filtros dinámicos
-    const { servicio, fecha } = req.query; 
+    const { servicio, fecha, estado } = req.query; 
     let sqlTurnos = `
       SELECT 
         t.id_turno, t.fecha, t.hora, t.estado,
@@ -102,9 +102,16 @@ router.get("/veterinario", auth, verificarRol(2), async function(req, res) {
       INNER JOIN mascotas m ON t.id_mascota = m.id_mascota
       INNER JOIN personas pc ON m.id_persona = pc.id_persona
       WHERE t.id_veterinario = ?
-        AND t.estado IN ('pendiente', 'finalizado')   -- 👈 filtro agregado
     `;
     const params = [id_veterinario];
+
+    if (estado) {
+      sqlTurnos += " AND t.estado = ?";
+      params.push(estado);
+    } else {
+      // valor por defecto si no se pasa estado
+      sqlTurnos += " AND t.estado IN ('pendiente','finalizado')";
+    }
 
     if (servicio) {
       sqlTurnos += " AND s.nombre LIKE ?";
@@ -115,7 +122,7 @@ router.get("/veterinario", auth, verificarRol(2), async function(req, res) {
       params.push(fecha);
     }
 
-    sqlTurnos += " ORDER BY t.fecha DESC, t.hora DESC";
+    sqlTurnos += " ORDER BY t.fecha ASC, t.hora ASC";
 
     // 4. Ejecutar consulta
     const [turnos] = await db.query(sqlTurnos, params);
@@ -129,8 +136,6 @@ router.get("/veterinario", auth, verificarRol(2), async function(req, res) {
     }
   }
 });
-
-
 //obtengo los datos de la mascota y su dueno, dependiendo del id_mascota.
 router.get("/fichadatos", auth, verificarRol(2), function(req, res) {
   const { id_mascota } = req.query;

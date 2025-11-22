@@ -142,6 +142,7 @@ router.put("/perfil", auth, verificarRol(2), async function(req, res) {
     dni,
     telefono,
     email,
+    contraseña,
     calle,
     numero,
     piso,
@@ -171,13 +172,23 @@ router.put("/perfil", auth, verificarRol(2), async function(req, res) {
     `;
     await db.query(sqlUpdatePersona, [nombre, apellido, dni, telefono, id_persona]);
 
-    // 3. Actualizar datos en tabla usuarios (email)
-    const sqlUpdateUsuario = `
-      UPDATE usuarios
-      SET email = ?
-      WHERE id_usuario = ?
-    `;
-    await db.query(sqlUpdateUsuario, [email, id_usuario]);
+    // 3. Actualizar datos en tabla usuarios (email + contraseña si se envió)
+    if (contraseña && contraseña.trim() !== "") {
+      const hashedPassword = await hashPass(contraseña);
+      const sqlUpdateUsuario = `
+        UPDATE usuarios
+        SET email = ?, contraseña = ?
+        WHERE id_usuario = ?
+      `;
+      await db.query(sqlUpdateUsuario, [email, hashedPassword, id_usuario]);
+    } else {
+      const sqlUpdateUsuario = `
+        UPDATE usuarios
+        SET email = ?
+        WHERE id_usuario = ?
+      `;
+      await db.query(sqlUpdateUsuario, [email, id_usuario]);
+    }
 
     // 4. Actualizar datos en tabla direcciones
     const sqlUpdateDireccion = `

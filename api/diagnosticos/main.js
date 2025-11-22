@@ -101,7 +101,7 @@ router.get("/turno", auth, verificarRol(2), function(req, res) {
 
 
 //crea un nuevo diagnostico, dependiendo del turno y actualiza el peso
-router.post("/", auth, verificarRol(2), function(req, res) {
+router.post("/", auth, verificarRol(2), async function(req, res) {
   const {
     id_turno,
     diagnostico,
@@ -113,47 +113,51 @@ router.post("/", auth, verificarRol(2), function(req, res) {
     fecha_subida
   } = req.body;
 
-  // 1. Insertar diagnóstico con peso_actual
-  const sqlDiagnostico = `
-    INSERT INTO diagnosticos (id_turno, diagnostico, tratamiento, observaciones, peso_actual)
-    VALUES (?, ?, ?, ?, ?)
-  `;
+  try {
+    // 1. Insertar diagnóstico
+    const sqlDiagnostico = `
+      INSERT INTO diagnosticos (id_turno, diagnostico, tratamiento, observaciones, peso_actual)
+      VALUES (?, ?, ?, ?, ?)
+    `;
+    const [result] = await db.query(sqlDiagnostico, [
+      id_turno,
+      diagnostico,
+      tratamiento,
+      observaciones,
+      peso_actual
+    ]);
 
-  db.query(sqlDiagnostico, [id_turno, diagnostico, tratamiento, observaciones, peso_actual])
-    .then(([result]) => {
-      const id_diagnostico = result.insertId;
-      const promesas = [];
+    const id_diagnostico = result.insertId;
 
-      // 2. Insertar archivo si se envió
-      if (archivo_nombre && archivo_ruta && fecha_subida) {
-        const sqlArchivo = `
-          INSERT INTO archivos (nombre, ruta, id_diagnostico, fecha_subida)
-          VALUES (?, ?, ?, ?)
-        `;
-        promesas.push(
-          db.query(sqlArchivo, [archivo_nombre, archivo_ruta, id_diagnostico, fecha_subida])
-        );
-      }
-
-      // 3. Actualizar peso en mascotas usando el id_turno
-      const sqlActualizarPeso = `
-        UPDATE mascotas m
-          JOIN turnos t ON m.id_mascota = t.id_mascota
-          SET m.peso = ?
-          WHERE t.id_turno = ?
-
+    // 2. Insertar archivo si se envió
+    if (archivo_nombre && archivo_ruta && fecha_subida) {
+      const sqlArchivo = `
+        INSERT INTO archivos (nombre, ruta, id_diagnostico, fecha_subida)
+        VALUES (?, ?, ?, ?)
       `;
-      promesas.push(db.query(sqlActualizarPeso, [peso_actual, id_turno]));
+      await db.query(sqlArchivo, [archivo_nombre, archivo_ruta, id_diagnostico, fecha_subida]);
+    }
 
-      return Promise.all(promesas);
-    })
-    .then(() => {
-      res.status(201).send("Diagnóstico registrado y peso actualizado correctamente");
-    })
-    .catch((error) => {
-      console.error("Error al registrar diagnóstico:", error);
-      res.status(500).send("Ocurrió un error al registrar el diagnóstico");
-    });
+    // 3. Actualizar peso en mascotas
+    const sqlActualizarPeso = `
+      UPDATE mascotas m
+        JOIN turnos t ON m.id_mascota = t.id_mascota
+        SET m.peso = ?
+        WHERE t.id_turno = ?
+    `;
+    await db.query(sqlActualizarPeso, [peso_actual, id_turno]);
+
+    // 4. Devolver el diagnóstico recién creado
+    const [rows] = await db.query(
+      "SELECT * FROM diagnosticos WHERE id_diagnostico = ?",
+      [id_diagnostico]
+    );
+
+    res.status(201).json({ diagnostico: rows[0] });
+  } catch (error) {
+    console.error("Error al registrar diagnóstico:", error);
+    res.status(500).send("Ocurrió un error al registrar el diagnóstico");
+  }
 });
 
 module.exports = router;
