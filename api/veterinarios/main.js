@@ -129,8 +129,81 @@ router.get("/perfil", auth, verificarRol(2), function(req, res) {
       res.status(500).send("Ocurrió un error al obtener el perfil");
     });
 });
+//editar datos personales del veterinario, menos matricula y especialidad
+router.put("/perfil", auth, verificarRol(2), async function(req, res) {
+  const id_usuario = req.user?.id;
+  if (!id_usuario) {
+    return res.status(401).send("Usuario no identificado");
+  }
 
+  const {
+    nombre,
+    apellido,
+    dni,
+    telefono,
+    email,
+    contraseña,
+    calle,
+    numero,
+    piso,
+    departamento
+  } = req.body;
 
+  try {
+    // 1. Obtener id_persona e id_direccion vinculados al usuario
+    const sqlPersona = `
+      SELECT p.id_persona, p.id_direccion
+      FROM personas p
+      WHERE p.id_usuario = ?
+    `;
+    const [personas] = await db.query(sqlPersona, [id_usuario]);
+
+    if (!personas.length) {
+      return res.status(404).send("Perfil no encontrado");
+    }
+
+    const { id_persona, id_direccion } = personas[0];
+
+    // 2. Actualizar datos en tabla personas
+    const sqlUpdatePersona = `
+      UPDATE personas
+      SET nombre = ?, apellido = ?, dni = ?, telefono = ?
+      WHERE id_persona = ?
+    `;
+    await db.query(sqlUpdatePersona, [nombre, apellido, dni, telefono, id_persona]);
+
+    // 3. Actualizar datos en tabla usuarios (email + contraseña si se envió)
+    if (contraseña && contraseña.trim() !== "") {
+      const hashedPassword = await hashPass(contraseña);
+      const sqlUpdateUsuario = `
+        UPDATE usuarios
+        SET email = ?, contraseña = ?
+        WHERE id_usuario = ?
+      `;
+      await db.query(sqlUpdateUsuario, [email, hashedPassword, id_usuario]);
+    } else {
+      const sqlUpdateUsuario = `
+        UPDATE usuarios
+        SET email = ?
+        WHERE id_usuario = ?
+      `;
+      await db.query(sqlUpdateUsuario, [email, id_usuario]);
+    }
+
+    // 4. Actualizar datos en tabla direcciones
+    const sqlUpdateDireccion = `
+      UPDATE direcciones
+      SET calle = ?, numero = ?, piso = ?, departamento = ?
+      WHERE id_direccion = ?
+    `;
+    await db.query(sqlUpdateDireccion, [calle, numero, piso, departamento, id_direccion]);
+
+    res.status(200).send("Perfil actualizado correctamente");
+  } catch (error) {
+    console.error("Error en PUT /perfil:", error);
+    res.status(500).send("Ocurrió un error al actualizar el perfil");
+  }
+});
 //el admin crea un nuevo veterinario
 router.post("/crearveterinario", auth, verificarRol(1), function(req, res, next) {
   const {

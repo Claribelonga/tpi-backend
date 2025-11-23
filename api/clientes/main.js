@@ -204,7 +204,7 @@ router.put("/editarcliente/:id_usuario", function(req, res, next) {
       res.status(500).send("Ocurrió un error al actualizar el perfil");
     });
 });
-//reestablecer contrasena
+//restablecer contrasena, para clientes y veterinarios, solo admin
 router.put("/restablecer/:id_usuario", async function(req, res) {
   const { id_usuario } = req.params;
 

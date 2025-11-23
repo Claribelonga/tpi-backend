@@ -25,7 +25,7 @@ router.use("/clientes", auth, verificarRol(1), clientesRouter); //admin, lito
 router.use("/veterinarios" , veterinariosRouter); //mixto admin y vete
 router.use("/especies" , auth, verificarRol(3), especiesRouter); //cliente, lito
 router.use("/publico" , publicoRouter);// sin verificar rol, lito
-router.use("/mascotas" , auth, verificarRol(3), mascotasRouter); //cliente, lito
+router.use("/mascotas" , auth, verificarRol(2,3), mascotasRouter); //cliente, lito
 router.use("/turnos" , turnosRouter);//mixto cliente y vete, lito
 router.use("/diagnosticos" , auth, verificarRol(2,3), diagnosticosRouter); //cliente, lito
 router.use("/especialidades", auth, verificarRol(1), especialidadesRouter); //admin, lito
