@@ -9,6 +9,7 @@ function auth(req, res, next) {
 
   if (verificacion?.data) {
     req.user = verificacion.data;
+    console.log("Usuario del token:", req.user); // depuración
     next();
   } else {
     res.status(401).send("Sin autorización");

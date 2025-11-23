@@ -285,6 +285,27 @@ router.post("/sacarturno", auth, verificarRol(3), function(req, res) {
       res.status(500).send(error.message || "Ocurrió un error al registrar el turno");
     });
 });
+router.put("/modificarestado", auth, verificarRol(2), function(req, res) {
+  const { id_turno, estado } = req.body;
+
+  if (!id_turno || typeof estado === "undefined") {
+    return res.status(400).send("Faltan datos: id_turno o estado");
+  }
+
+  const sql = "UPDATE turnos SET estado = ? WHERE id_turno = ?";
+
+  db.query(sql, [estado, id_turno])
+    .then(([result]) => {
+      if (result.affectedRows === 0) {
+        return res.status(404).send("Turno no encontrado");
+      }
+      res.status(200).send("Estado del turno actualizado correctamente");
+    })
+    .catch((error) => {
+      console.error("Error en PUT /modificarestado:", error);
+      res.status(500).send("Ocurrió un error al actualizar el estado del turno");
+    });
+});
 
 router.put("/modificarestado", auth, verificarRol(2), function(req, res) {
   const { id_turno, estado } = req.body;

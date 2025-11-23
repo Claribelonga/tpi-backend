@@ -60,7 +60,8 @@ router.get("/", function(req, res) {
       res.status(500).send("Ocurrió un error al obtener los diagnósticos");
     });
 });
-router.get("/turno", auth, verificarRol(2), function(req, res) {
+//ve el diagnostico de un turno puntual
+router.get("/turno", auth, verificarRol(2,3), function(req, res) {
   const { id_turno } = req.query;
 
   if (!id_turno) {
