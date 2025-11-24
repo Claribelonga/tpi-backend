@@ -3,7 +3,7 @@ const db = require('../../conexion');
 const { auth, verificarRol } = require("../middleware");
 
 //veo los diagnosticos de una mascota
-router.get("/", function(req, res) {
+router.get("/", auth, verificarRol(2), function(req, res) {
   const { id_mascota, pagina } = req.query;
 
   if (!id_mascota) {
@@ -61,6 +61,41 @@ router.get("/", function(req, res) {
     });
 });
 //crear un get para ver el diagnostico limitado para cliente(diagnostico y tratamiento)
+router.get("/turnocliente", auth, verificarRol(3), function(req, res) {
+  const { id_turno } = req.query;
+
+  if (!id_turno) {
+    return res.status(400).send("Falta el parámetro id_turno");
+  }
+
+  const sql = `
+    SELECT 
+      d.id_diagnostico,
+      d.id_turno,
+      d.diagnostico,
+      d.tratamiento,
+      a.id_archivo,
+      a.nombre
+    FROM diagnosticos d
+    LEFT JOIN archivos a ON d.id_diagnostico = a.id_diagnostico
+    WHERE d.id_turno = ?
+    LIMIT 1
+  `;
+
+ db.query(sql, [id_turno])
+  .then(([rows]) => {
+    if (rows.length === 0) {
+      // turno existe pero sin diagnóstico
+      return res.status(200).json({ diagnostico: null });
+    }
+    res.status(200).json({ diagnostico: rows[0] });
+  })
+  .catch((error) => {
+    console.error("Error en GET /turno:", error);
+    res.status(500).send("Ocurrió un error al obtener el diagnóstico");
+  });
+
+});
 //para agenda turnos
 router.get("/turno", auth, verificarRol(2), function(req, res) {
   const { id_turno } = req.query;
