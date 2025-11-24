@@ -27,7 +27,7 @@ router.use("/especies" , auth, verificarRol(3), especiesRouter); //cliente, list
 router.use("/publico" , publicoRouter);// sin verificar rol, listo
 router.use("/mascotas" , auth, verificarRol(2,3), mascotasRouter); //cliente, listo
 router.use("/turnos" , turnosRouter);//mixto cliente y vete, listo
-router.use("/diagnosticos", diagnosticosRouter); //cliente, listo
+router.use("/diagnosticos", diagnosticosRouter); //vete y cliente, listo
 router.use("/especialidades", auth, verificarRol(1), especialidadesRouter); //admin, listo
 router.use("/pruebas" , pruebasRouter);
 //endpoint
