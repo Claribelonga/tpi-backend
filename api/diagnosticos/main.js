@@ -60,6 +60,7 @@ router.get("/", function(req, res) {
       res.status(500).send("Ocurrió un error al obtener los diagnósticos");
     });
 });
+//crear un get para ver el diagnostico limitado para cliente(diagnostico y tratamiento)
 //para agenda turnos
 router.get("/turno", auth, verificarRol(2), function(req, res) {
   const { id_turno } = req.query;
