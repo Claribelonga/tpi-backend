@@ -3,14 +3,14 @@ const db = require('../../conexion');
 const { auth, verificarRol } = require("../middleware");
 
 //veo los diagnosticos de una mascota
-router.get("/", function(req, res) {
+router.get("/", auth, verificarRol(2), function(req, res) {
   const { id_mascota, pagina } = req.query;
 
   if (!id_mascota) {
     return res.status(400).send("El parámetro 'id_mascota' es obligatorio");
   }
 
-  const registrosPorPagina = 4;
+  const registrosPorPagina = 1;
   const paginaActual = parseInt(pagina) || 1;
   const offset = (paginaActual - 1) * registrosPorPagina;
 
@@ -60,8 +60,44 @@ router.get("/", function(req, res) {
       res.status(500).send("Ocurrió un error al obtener los diagnósticos");
     });
 });
-//ve el diagnostico de un turno puntual
-router.get("/turno", auth, verificarRol(2,3), function(req, res) {
+//crear un get para ver el diagnostico limitado para cliente(diagnostico y tratamiento)
+router.get("/turnocliente", auth, verificarRol(3), function(req, res) {
+  const { id_turno } = req.query;
+
+  if (!id_turno) {
+    return res.status(400).send("Falta el parámetro id_turno");
+  }
+
+  const sql = `
+    SELECT 
+      d.id_diagnostico,
+      d.id_turno,
+      d.diagnostico,
+      d.tratamiento,
+      a.id_archivo,
+      a.nombre
+    FROM diagnosticos d
+    LEFT JOIN archivos a ON d.id_diagnostico = a.id_diagnostico
+    WHERE d.id_turno = ?
+    LIMIT 1
+  `;
+
+ db.query(sql, [id_turno])
+  .then(([rows]) => {
+    if (rows.length === 0) {
+      // turno existe pero sin diagnóstico
+      return res.status(200).json({ diagnostico: null });
+    }
+    res.status(200).json({ diagnostico: rows[0] });
+  })
+  .catch((error) => {
+    console.error("Error en GET /turno:", error);
+    res.status(500).send("Ocurrió un error al obtener el diagnóstico");
+  });
+
+});
+//para agenda turnos
+router.get("/turno", auth, verificarRol(2), function(req, res) {
   const { id_turno } = req.query;
 
   if (!id_turno) {
@@ -157,6 +193,55 @@ router.post("/", auth, verificarRol(2), async function(req, res) {
   } catch (error) {
     console.error("Error al registrar diagnóstico:", error);
     res.status(500).send("Ocurrió un error al registrar el diagnóstico");
+  }
+});
+router.put("/:id_diagnostico", auth, verificarRol(2), async function(req, res) {
+  const { id_diagnostico } = req.params;
+  const { diagnostico, tratamiento, observaciones, peso_actual } = req.body;
+
+  try {
+    // 1. Actualizar diagnóstico
+    const sqlUpdate = `
+      UPDATE diagnosticos
+      SET diagnostico = ?, tratamiento = ?, observaciones = ?, peso_actual = ?
+      WHERE id_diagnostico = ?
+    `;
+    await db.query(sqlUpdate, [
+      diagnostico,
+      tratamiento,
+      observaciones,
+      peso_actual,
+      id_diagnostico
+    ]);
+
+    // 2. Obtener id_turno para actualizar peso en mascotas
+    const [turnoRows] = await db.query(
+      "SELECT id_turno FROM diagnosticos WHERE id_diagnostico = ?",
+      [id_diagnostico]
+    );
+
+    if (turnoRows.length > 0) {
+      const id_turno = turnoRows[0].id_turno;
+
+      const sqlActualizarPeso = `
+        UPDATE mascotas m
+          JOIN turnos t ON m.id_mascota = t.id_mascota
+          SET m.peso = ?
+          WHERE t.id_turno = ?
+      `;
+      await db.query(sqlActualizarPeso, [peso_actual, id_turno]);
+    }
+
+    // 3. Devolver el diagnóstico actualizado
+    const [rows] = await db.query(
+      "SELECT * FROM diagnosticos WHERE id_diagnostico = ?",
+      [id_diagnostico]
+    );
+
+    res.status(200).json({ diagnostico: rows[0] });
+  } catch (error) {
+    console.error("Error al actualizar diagnóstico:", error);
+    res.status(500).send("Ocurrió un error al actualizar el diagnóstico");
   }
 });
 
