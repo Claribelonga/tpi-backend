@@ -38,7 +38,7 @@ router.get("/cliente", auth, verificarRol(3), function(req, res) {
         INNER JOIN servicios s ON t.id_servicio = s.id_servicio
         INNER JOIN veterinarios v ON t.id_veterinario = v.id_veterinario
         INNER JOIN personas pv ON v.id_persona = pv.id_persona
-        WHERE m.id_persona = ?
+        WHERE m.id_persona = ? AND t.estado IN ('pendiente','finalizado')
       `;
 
       const params = [id_persona];
@@ -205,13 +205,16 @@ router.get("/proximo", auth, verificarRol(3), async function(req, res) {
     // 2. Obtener el próximo turno de sus mascotas
     const sqlTurno = `
       SELECT 
+        t.id_turno,
         t.fecha,
         t.hora,
+        t.estado,
         m.nombre AS nombre_mascota
       FROM turnos t
       INNER JOIN mascotas m ON t.id_mascota = m.id_mascota
       WHERE m.id_persona = ?
         AND CONCAT(t.fecha, ' ', t.hora) > NOW()
+        AND t.estado = "pendiente"
       ORDER BY t.fecha ASC, t.hora ASC
       LIMIT 1
 
@@ -290,7 +293,8 @@ router.post("/sacarturno", auth, verificarRol(3), function(req, res) {
       res.status(500).send(error.message || "Ocurrió un error al registrar el turno");
     });
 });
-router.put("/modificarestado", auth, verificarRol(2), function(req, res) {
+router.put("/modificarestado", auth, verificarRol(2,3), function(req, res) {
+   console.log("BODY RECIBIDO EN BACK:", req.body);
   const { id_turno, estado } = req.body;
 
   if (!id_turno || typeof estado === "undefined") {
@@ -312,28 +316,6 @@ router.put("/modificarestado", auth, verificarRol(2), function(req, res) {
     });
 });
 
-router.put("/modificarestado", auth, verificarRol(2), function(req, res) {
-  const { id_turno, estado } = req.body;
-
-  if (!id_turno || typeof estado === "undefined") {
-    return res.status(400).send("Faltan datos: id_turno o estado");
-  }
-
-  const sql = "UPDATE turnos SET estado = ? WHERE id_turno = ?";
-
-  db.query(sql, [estado, id_turno])
-    .then(([result]) => {
-      if (result.affectedRows === 0) {
-        return res.status(404).send("Turno no encontrado");
-      }
-      res.status(200).send("Estado del turno actualizado correctamente");
-    })
-    .catch((error) => {
-      console.error("Error en PUT /modificarestado:", error);
-      res.status(500).send("Ocurrió un error al actualizar el estado del turno");
-    });
-});
 
 //veo los turnos segun el veterinario que se logeo
 module.exports = router;
-
