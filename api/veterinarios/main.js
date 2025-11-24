@@ -130,7 +130,7 @@ router.get("/perfil", auth, verificarRol(2), function(req, res) {
     });
 });
 //editar datos personales del veterinario, menos matricula y especialidad
-router.put("/perfil", auth, verificarRol(2), async function(req, res) {
+router.put("/editarperfil", auth, verificarRol(2), async function(req, res) {
   const id_usuario = req.user?.id;
   if (!id_usuario) {
     return res.status(401).send("Usuario no identificado");
