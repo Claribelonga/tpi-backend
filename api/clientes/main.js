@@ -10,7 +10,7 @@ router.get("/", function(req, res) {
 
   const registrosPorPagina = 4;
   const paginaActual = parseInt(pagina) || 1;
-  const offset = (paginaActual - 1) * registrosPorPagina;
+  const offset = (paginaActual - 1) * registrosPorPagina; //cual fue la ultimo registro 
 
   const filtros = [];
   const params = [];
@@ -131,11 +131,11 @@ router.get("/", function(req, res) {
 // El admin crea un nuevo cliente
 router.post("/crearcliente", function(req, res, next) {
   const {
-    email, contraseña, nombre, apellido, dni, telefono,
+    email, nombre, apellido, dni, telefono,
     calle, numero, piso, departamento
   } = req.body;
 
-  const passHash = hashPass(contraseña);
+  const passHash = hashPass(dni.toString());
   const id_rol = 3;
   // 1. Insertar en usuarios
   const sqlUsuario = "INSERT INTO usuarios (email, contraseña, id_rol) VALUES (?, ?, ?)";

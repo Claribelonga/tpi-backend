@@ -204,15 +204,15 @@ router.put("/editarperfil", auth, verificarRol(2), async function(req, res) {
     res.status(500).send("Ocurrió un error al actualizar el perfil");
   }
 });
-//el admin crea un nuevo veterinario
+//el admin crea un nuevo veterinario con dni como contraseña
 router.post("/crearveterinario", auth, verificarRol(1), function(req, res, next) {
   const {
-    email, contraseña, nombre, apellido, dni, telefono,
+    email, nombre, apellido, dni, telefono,
     calle, numero, piso, departamento,
     matricula, id_especialidad
   } = req.body;
 
-  const passHash = hashPass(contraseña);
+  const passHash = hashPass(dni.toString());
   const id_rol = 2;
   // 1. Insertar en usuarios
   const sqlUsuario = "INSERT INTO usuarios (email, contraseña, id_rol) VALUES (?, ?, ?)";
@@ -248,21 +248,21 @@ router.post("/crearveterinario", auth, verificarRol(1), function(req, res, next)
 });
 
 
-//el admin editar el veterinario 
+//el admin editar el veterinario pero NO la contraseña
 router.put("/editarvete/:id_usuario", auth, verificarRol(1), function(req, res, next) {
   const { id_usuario } = req.params;
   const {
-    email, contraseña,
+    email,
     nombre, apellido, dni, telefono,
     calle, numero, piso, departamento,
     matricula, id_especialidad
   } = req.body;
 
-  const passHash = hashPass(contraseña);
+  // const passHash = hashPass(contraseña);
 
   // 1. Actualizar usuarios
-  const sqlUsuario = "UPDATE usuarios SET email = ?, contraseña = ? WHERE id_usuario = ?";
-  db.query(sqlUsuario, [email, passHash, id_usuario])
+  const sqlUsuario = "UPDATE usuarios SET email = ?  WHERE id_usuario = ?";
+  db.query(sqlUsuario, [email, id_usuario])
     .then(() => {
       // 2. Actualizar personas
       const sqlPersona = "UPDATE personas SET nombre = ?, apellido = ?, dni = ?, telefono = ? WHERE id_usuario = ?";
@@ -295,6 +295,5 @@ router.put("/editarvete/:id_usuario", auth, verificarRol(1), function(req, res, 
       res.status(500).send("Ocurrió un error al actualizar el perfil");
     });
 });
-
 
 module.exports = router;
