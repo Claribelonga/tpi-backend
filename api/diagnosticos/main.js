@@ -3,7 +3,7 @@ const db = require('../../conexion');
 const { auth, verificarRol } = require("../middleware");
 
 //veo los diagnosticos de una mascota
-router.get("/", auth, verificarRol(2), function(req, res) {
+router.get("/", auth, verificarRol(2), async function(req, res) {
   const { id_mascota, pagina } = req.query;
 
   if (!id_mascota) {
@@ -39,27 +39,37 @@ router.get("/", auth, verificarRol(2), function(req, res) {
     LIMIT ? OFFSET ?
   `;
 
-  Promise.all([
-    db.query(sqlCount, [id_mascota]),
-    db.query(sqlDiagnosticos, [id_mascota, registrosPorPagina, offset])
-  ])
-    .then(([[conteo], [diagnosticos]]) => {
-      const totalRegistros = conteo[0].total;
-      const totalPaginas = Math.ceil(totalRegistros / registrosPorPagina);
+  try {
+    const [[conteo], [diagnosticos]] = await Promise.all([
+      db.query(sqlCount, [id_mascota]),
+      db.query(sqlDiagnosticos, [id_mascota, registrosPorPagina, offset])
+    ]);
 
-      res.send({
-        paginaActual,
-        registrosPorPagina,
-        totalRegistros,
-        totalPaginas,
-        diagnosticos
-      });
-    })
-    .catch(error => {
-      console.error("Error en GET /diagnosticos:", error);
-      res.status(500).send("Ocurrió un error al obtener los diagnósticos");
+    const totalRegistros = conteo[0].total;
+    const totalPaginas = Math.ceil(totalRegistros / registrosPorPagina);
+
+    // 3. Adjuntar archivos a cada diagnóstico
+    for (let diag of diagnosticos) {
+      const [archivos] = await db.query(
+        "SELECT id_archivo, nombre FROM archivos WHERE id_diagnostico = ?",
+        [diag.id_diagnostico]
+      );
+      diag.archivos = archivos;
+    }
+
+    res.send({
+      paginaActual,
+      registrosPorPagina,
+      totalRegistros,
+      totalPaginas,
+      diagnosticos
     });
+  } catch (error) {
+    console.error("Error en GET /diagnosticos:", error);
+    res.status(500).send("Ocurrió un error al obtener los diagnósticos");
+  }
 });
+
 //crear un get para ver el diagnostico limitado para cliente(diagnostico y tratamiento)
 router.get("/turnocliente", auth, verificarRol(3), function(req, res) {
   const { id_turno } = req.query;
@@ -73,29 +83,26 @@ router.get("/turnocliente", auth, verificarRol(3), function(req, res) {
       d.id_diagnostico,
       d.id_turno,
       d.diagnostico,
-      d.tratamiento,
-      a.id_archivo,
-      a.nombre
+      d.tratamiento
     FROM diagnosticos d
-    LEFT JOIN archivos a ON d.id_diagnostico = a.id_diagnostico
     WHERE d.id_turno = ?
     LIMIT 1
   `;
-
- db.query(sql, [id_turno])
-  .then(([rows]) => {
-    if (rows.length === 0) {
-      // turno existe pero sin diagnóstico
-      return res.status(200).json({ diagnostico: null });
-    }
-    res.status(200).json({ diagnostico: rows[0] });
-  })
-  .catch((error) => {
-    console.error("Error en GET /turno:", error);
-    res.status(500).send("Ocurrió un error al obtener el diagnóstico");
-  });
-
+//archu
+  db.query(sql, [id_turno])
+    .then(([rows]) => {
+      if (rows.length === 0) {
+        // turno existe pero sin diagnóstico
+        return res.status(200).json({ diagnostico: null });
+      }
+      res.status(200).json({ diagnostico: rows[0] });
+    })
+    .catch((error) => {
+      console.error("Error en GET /turnocliente:", error);
+      res.status(500).send("Ocurrió un error al obtener el diagnóstico");
+    });
 });
+
 //para agenda turnos
 router.get("/turno", auth, verificarRol(2), function(req, res) {
   const { id_turno } = req.query;
@@ -111,30 +118,25 @@ router.get("/turno", auth, verificarRol(2), function(req, res) {
       d.diagnostico,
       d.tratamiento,
       d.observaciones,
-      d.peso_actual,
-      a.id_archivo,
-      a.nombre
+      d.peso_actual
     FROM diagnosticos d
-    LEFT JOIN archivos a ON d.id_diagnostico = a.id_diagnostico
     WHERE d.id_turno = ?
     LIMIT 1
   `;
 
- db.query(sql, [id_turno])
-  .then(([rows]) => {
-    if (rows.length === 0) {
-      // turno existe pero sin diagnóstico
-      return res.status(200).json({ diagnostico: null });
-    }
-    res.status(200).json({ diagnostico: rows[0] });
-  })
-  .catch((error) => {
-    console.error("Error en GET /turno:", error);
-    res.status(500).send("Ocurrió un error al obtener el diagnóstico");
-  });
-
+  db.query(sql, [id_turno])
+    .then(([rows]) => {
+      if (rows.length === 0) {
+        // turno existe pero sin diagnóstico
+        return res.status(200).json({ diagnostico: null });
+      }
+      res.status(200).json({ diagnostico: rows[0] });
+    })
+    .catch((error) => {
+      console.error("Error en GET /turno:", error);
+      res.status(500).send("Ocurrió un error al obtener el diagnóstico");
+    });
 });
-
 
 //crea un nuevo diagnostico, dependiendo del turno y actualiza el peso
 router.post("/", auth, verificarRol(2), async function(req, res) {
@@ -143,10 +145,7 @@ router.post("/", auth, verificarRol(2), async function(req, res) {
     diagnostico,
     tratamiento,
     observaciones,
-    peso_actual,
-    archivo_nombre,
-    archivo_ruta,
-    fecha_subida
+    peso_actual
   } = req.body;
 
   try {
@@ -165,25 +164,16 @@ router.post("/", auth, verificarRol(2), async function(req, res) {
 
     const id_diagnostico = result.insertId;
 
-    // 2. Insertar archivo si se envió
-    if (archivo_nombre && archivo_ruta && fecha_subida) {
-      const sqlArchivo = `
-        INSERT INTO archivos (nombre, ruta, id_diagnostico, fecha_subida)
-        VALUES (?, ?, ?, ?)
-      `;
-      await db.query(sqlArchivo, [archivo_nombre, archivo_ruta, id_diagnostico, fecha_subida]);
-    }
-
-    // 3. Actualizar peso en mascotas
+    // 2. Actualizar peso en mascotas
     const sqlActualizarPeso = `
       UPDATE mascotas m
-        JOIN turnos t ON m.id_mascota = t.id_mascota
-        SET m.peso = ?
-        WHERE t.id_turno = ?
+      JOIN turnos t ON m.id_mascota = t.id_mascota
+      SET m.peso = ?
+      WHERE t.id_turno = ?
     `;
     await db.query(sqlActualizarPeso, [peso_actual, id_turno]);
 
-    // 4. Devolver el diagnóstico recién creado
+    // 3. Devolver el diagnóstico recién creado
     const [rows] = await db.query(
       "SELECT * FROM diagnosticos WHERE id_diagnostico = ?",
       [id_diagnostico]
@@ -195,6 +185,8 @@ router.post("/", auth, verificarRol(2), async function(req, res) {
     res.status(500).send("Ocurrió un error al registrar el diagnóstico");
   }
 });
+
+//lo hace el admin
 router.put("/:id_diagnostico", auth, verificarRol(2), async function(req, res) {
   const { id_diagnostico } = req.params;
   const { diagnostico, tratamiento, observaciones, peso_actual } = req.body;

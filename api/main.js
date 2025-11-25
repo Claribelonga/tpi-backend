@@ -15,6 +15,7 @@ const mascotasRouter = require('./mascotas/main');
 const turnosRouter = require('./turnos/main');
 const diagnosticosRouter = require('./diagnosticos/main');
 const especialidadesRouter = require('./especialidades/main');
+const archivosRouter = require('./archivos/main');
 const pruebasRouter = require('./pruebas')
 //validaruser va a ser nuestro middleware
 
@@ -29,6 +30,7 @@ router.use("/mascotas" , auth, verificarRol(2,3), mascotasRouter); //cliente, li
 router.use("/turnos" , turnosRouter);//mixto cliente y vete, lito
 router.use("/diagnosticos" , diagnosticosRouter); //vete y cliente, lito
 router.use("/especialidades", auth, verificarRol(1), especialidadesRouter); //admin, lito
+router.use("/archivos", archivosRouter); //vete, y capaz cliente 
 router.use("/pruebas" , pruebasRouter);
 //endpoint
 router.get('/', function(req, res, next){
