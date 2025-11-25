@@ -48,4 +48,35 @@ router.post("/", auth, verificarRol(2), fileUpload(), async (req, res) => {
     res.status(500).send("Ocurrió un error al guardar el archivo");
   }
 });
+
+// GET para descargar archivo por id_archivo
+router.get("/:id_archivo", auth, verificarRol(2,3), async (req, res) => {
+  const { id_archivo } = req.params;
+
+  try {
+    // 1. Buscar el archivo en la base de datos
+    const [rows] = await db.query(
+      "SELECT nombre, ruta FROM archivos WHERE id_archivo = ?",
+      [id_archivo]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Archivo no encontrado en la base de datos" });
+    }
+
+    const { nombre, ruta } = rows[0];
+    const filepath = path.join(directorio, ruta);
+
+    // 2. Verificar que el archivo exista físicamente
+    if (!fs.existsSync(filepath)) {
+      return res.status(404).json({ error: "Archivo físico no encontrado" });
+    }
+
+    // 3. Descargar el archivo con su nombre original
+    res.download(filepath, nombre);
+  } catch (error) {
+    console.error("Error en GET /archivos/:id_archivo:", error);
+    res.status(500).send("Ocurrió un error al descargar el archivo");
+  }
+});
 module.exports = router;
