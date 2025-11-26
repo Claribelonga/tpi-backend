@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const db = require('../../conexion');
 
+//se emplea en el inicio
 router.get("/servicios", function(req, res) {
   const pagina = parseInt(req.query.pagina) || 1;
   const registrosPorPagina = 6;
@@ -17,7 +18,6 @@ router.get("/servicios", function(req, res) {
     FROM servicios
   `;
 
-  // Ejecutar ambas consultas en paralelo
   Promise.all([
     db.query(sqlDatos, [registrosPorPagina, offset]),
     db.query(sqlCount)
@@ -39,7 +39,7 @@ router.get("/servicios", function(req, res) {
       res.status(500).send("Ocurrió un error al obtener las servicios");
     });
 });
-
+//se emplea en el inicio
 router.get("/veterinarios", function(req, res) {
   const pagina = parseInt(req.query.pagina) || 1;
   const registrosPorPagina = 3;
@@ -83,8 +83,4 @@ router.get("/veterinarios", function(req, res) {
       res.status(500).send("Ocurrió un error al obtener los veterinarios");
     });
 });
-
-
-
-
 module.exports = router;

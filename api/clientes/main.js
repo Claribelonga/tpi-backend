@@ -137,7 +137,6 @@ router.post("/crearcliente", function(req, res, next) {
 
   const passHash = hashPass(contraseña);
   const id_rol = 3;
-  // 1. Insertar en usuarios
   const sqlUsuario = "INSERT INTO usuarios (email, contraseña, id_rol) VALUES (?, ?, ?)";
   db.query(sqlUsuario, [email, passHash, id_rol])
     .then(([resultUsuario]) => {
@@ -165,7 +164,7 @@ router.post("/crearcliente", function(req, res, next) {
     });
 });
 
-// el admin edita al cliente, menos mascotas y contra ya que corresponde a otra tabla.
+// el admin edita al cliente, menos mascotas y contra
 router.put("/editarcliente/:id_usuario", function(req, res, next) {
   const { id_usuario } = req.params;
   const {
@@ -174,16 +173,13 @@ router.put("/editarcliente/:id_usuario", function(req, res, next) {
     calle, numero, piso, departamento
   } = req.body;
 
-  // 1. Actualizar usuarios (email vacía)
   const sqlUsuario = "UPDATE usuarios SET email = ? WHERE id_usuario = ?";
   db.query(sqlUsuario, [email, id_usuario])
     .then(() => {
-      // 2. Actualizar personas
       const sqlPersona = "UPDATE personas SET nombre = ?, apellido = ?, dni = ?, telefono = ? WHERE id_usuario = ?";
       return db.query(sqlPersona, [nombre, apellido, dni, telefono, id_usuario]);
     })
     .then(() => {
-      // 3. Obtener id_direccion desde personas
       const sqlGetDireccion = "SELECT id_direccion FROM personas WHERE id_usuario = ?";
       return db.query(sqlGetDireccion, [id_usuario]);
     })
@@ -192,7 +188,6 @@ router.put("/editarcliente/:id_usuario", function(req, res, next) {
 
       const id_direccion = rows[0].id_direccion;
 
-      // 4. Actualizar direcciones
       const sqlDireccion = "UPDATE direcciones SET calle = ?, numero = ?, piso = ?, departamento = ? WHERE id_direccion = ?";
       return db.query(sqlDireccion, [calle, numero, piso, departamento, id_direccion]);
     })
@@ -209,7 +204,6 @@ router.put("/restablecer/:id_usuario", async function(req, res) {
   const { id_usuario } = req.params;
 
   try {
-    // 1. Buscar el dni en la tabla personas
     const [personas] = await db.query(
       "SELECT dni FROM personas WHERE id_usuario = ?",
       [id_usuario]
@@ -221,10 +215,8 @@ router.put("/restablecer/:id_usuario", async function(req, res) {
 
     const dni = personas[0].dni;
 
-    // 2. Hashear el dni con tu librería
     const hashedPassword = hashPass(dni.toString());
 
-    // 3. Actualizar la contraseña en la tabla usuarios
     const [result] = await db.query(
       "UPDATE usuarios SET contraseña = ? WHERE id_usuario = ?",
       [hashedPassword, id_usuario]
@@ -234,7 +226,6 @@ router.put("/restablecer/:id_usuario", async function(req, res) {
       return res.status(404).send("Usuario no encontrado");
     }
 
-    // 4. Respuesta de éxito
     res.status(200).send("Contraseña restablecida correctamente (DNI como nueva contraseña)");
 
   } catch (error) {
@@ -242,6 +233,5 @@ router.put("/restablecer/:id_usuario", async function(req, res) {
     res.status(500).send("Ocurrió un error al restablecer la contraseña");
   }
 });
-
 
 module.exports = router;

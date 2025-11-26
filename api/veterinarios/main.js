@@ -91,7 +91,7 @@ router.get("/", auth, verificarRol(1), function(req, res) {
       res.status(500).send("Ocurrió un error al obtener los veterinarios");
     });
 });
-
+//el veterinario logueado puede ver su perfil
 router.get("/perfil", auth, verificarRol(2), function(req, res) {
   const id_usuario = req.user?.id;
 
@@ -129,7 +129,7 @@ router.get("/perfil", auth, verificarRol(2), function(req, res) {
       res.status(500).send("Ocurrió un error al obtener el perfil");
     });
 });
-//select para cliente,sacar turno
+//el cliente elige un veterinario para el turno, select
 router.get("/select", auth, verificarRol(3), async function(req, res) {
   const sql = `
     SELECT 
@@ -151,7 +151,7 @@ router.get("/select", auth, verificarRol(3), async function(req, res) {
     res.status(500).send("Ocurrió un error al obtener los veterinarios");
   }
 });
-//editar datos personales del veterinario, menos matricula y especialidad
+//el veterinario logueado puede editar su perfil, menos su matricula y especialidad
 router.put("/editarperfil", auth, verificarRol(2), async function(req, res) {
   const id_usuario = req.user?.id;
   if (!id_usuario) {
@@ -172,7 +172,6 @@ router.put("/editarperfil", auth, verificarRol(2), async function(req, res) {
   } = req.body;
 
   try {
-    // 1. Obtener id_persona e id_direccion vinculados al usuario
     const sqlPersona = `
       SELECT p.id_persona, p.id_direccion
       FROM personas p
@@ -186,7 +185,6 @@ router.put("/editarperfil", auth, verificarRol(2), async function(req, res) {
 
     const { id_persona, id_direccion } = personas[0];
 
-    // 2. Actualizar datos en tabla personas
     const sqlUpdatePersona = `
       UPDATE personas
       SET nombre = ?, apellido = ?, dni = ?, telefono = ?
@@ -194,7 +192,6 @@ router.put("/editarperfil", auth, verificarRol(2), async function(req, res) {
     `;
     await db.query(sqlUpdatePersona, [nombre, apellido, dni, telefono, id_persona]);
 
-    // 3. Actualizar datos en tabla usuarios (email + contraseña si se envió)
     if (contraseña && contraseña.trim() !== "") {
       const hashedPassword = await hashPass(contraseña);
       const sqlUpdateUsuario = `
@@ -212,7 +209,6 @@ router.put("/editarperfil", auth, verificarRol(2), async function(req, res) {
       await db.query(sqlUpdateUsuario, [email, id_usuario]);
     }
 
-    // 4. Actualizar datos en tabla direcciones
     const sqlUpdateDireccion = `
       UPDATE direcciones
       SET calle = ?, numero = ?, piso = ?, departamento = ?
@@ -268,7 +264,7 @@ router.post("/crearveterinario", auth, verificarRol(1), function(req, res, next)
       res.status(500).send("Ocurrió un error al guardar el veterinario");
     });
 });
-//el admin editar el veterinario 
+//el admin edita el perfil de un veterinario 
 router.put("/editarvete/:id_usuario", auth, verificarRol(1), function(req, res, next) {
   const { id_usuario } = req.params;
   const {
@@ -280,16 +276,13 @@ router.put("/editarvete/:id_usuario", auth, verificarRol(1), function(req, res, 
 
   const passHash = hashPass(contraseña);
 
-  // 1. Actualizar usuarios
   const sqlUsuario = "UPDATE usuarios SET email = ?, contraseña = ? WHERE id_usuario = ?";
   db.query(sqlUsuario, [email, passHash, id_usuario])
     .then(() => {
-      // 2. Actualizar personas
       const sqlPersona = "UPDATE personas SET nombre = ?, apellido = ?, dni = ?, telefono = ? WHERE id_usuario = ?";
       return db.query(sqlPersona, [nombre, apellido, dni, telefono, id_usuario]);
     })
     .then(() => {
-      // 3. Obtener id_direccion e id_persona
       const sqlGetPersona = "SELECT id_direccion, id_persona FROM personas WHERE id_usuario = ?";
       return db.query(sqlGetPersona, [id_usuario]);
     })
@@ -298,11 +291,9 @@ router.put("/editarvete/:id_usuario", auth, verificarRol(1), function(req, res, 
 
       const { id_direccion, id_persona } = rows[0];
 
-      // 4. Actualizar direcciones
       const sqlDireccion = "UPDATE direcciones SET calle = ?, numero = ?, piso = ?, departamento = ? WHERE id_direccion = ?";
       return db.query(sqlDireccion, [calle, numero, piso, departamento, id_direccion])
         .then(() => {
-          // 5. Actualizar veterinarios directamente
           const sqlVeterinario = "UPDATE veterinarios SET matricula = ?, id_especialidad = ? WHERE id_persona = ?";
           return db.query(sqlVeterinario, [matricula, id_especialidad, id_persona]);
         });
@@ -315,6 +306,5 @@ router.put("/editarvete/:id_usuario", auth, verificarRol(1), function(req, res, 
       res.status(500).send("Ocurrió un error al actualizar el perfil");
     });
 });
-
 
 module.exports = router;
