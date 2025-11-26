@@ -129,6 +129,28 @@ router.get("/perfil", auth, verificarRol(2), function(req, res) {
       res.status(500).send("Ocurrió un error al obtener el perfil");
     });
 });
+//select para cliente,sacar turno
+router.get("/select", auth, verificarRol(3), async function(req, res) {
+  const sql = `
+    SELECT 
+      v.id_veterinario,
+      p.nombre AS nombre_veterinario,
+      p.apellido AS apellido_veterinario
+    FROM veterinarios v
+    INNER JOIN personas p ON v.id_persona = p.id_persona
+  `;
+
+  try {
+    const [rows] = await db.query(sql);
+    if (rows.length === 0) {
+      return res.status(404).send("No se encontraron veterinarios");
+    }
+    res.send({ veterinarios: rows });
+  } catch (error) {
+    console.error("Error en GET /veterinarios:", error);
+    res.status(500).send("Ocurrió un error al obtener los veterinarios");
+  }
+});
 //editar datos personales del veterinario, menos matricula y especialidad
 router.put("/editarperfil", auth, verificarRol(2), async function(req, res) {
   const id_usuario = req.user?.id;
