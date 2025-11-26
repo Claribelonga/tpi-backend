@@ -37,7 +37,7 @@ router.get("/cliente", auth, verificarRol(3), function(req, res) {
         INNER JOIN servicios s ON t.id_servicio = s.id_servicio
         INNER JOIN veterinarios v ON t.id_veterinario = v.id_veterinario
         INNER JOIN personas pv ON v.id_persona = pv.id_persona
-        WHERE m.id_persona = ?
+        WHERE m.id_persona = ? AND t.estado IN ('pendiente','finalizado')
       `;
 
       const params = [id_persona];
@@ -196,13 +196,16 @@ router.get("/proximo", auth, verificarRol(3), async function(req, res) {
 
     const sqlTurno = `
       SELECT 
+        t.id_turno,
         t.fecha,
         t.hora,
+        t.estado,
         m.nombre AS nombre_mascota
       FROM turnos t
       INNER JOIN mascotas m ON t.id_mascota = m.id_mascota
       WHERE m.id_persona = ?
         AND CONCAT(t.fecha, ' ', t.hora) > NOW()
+        AND t.estado = "pendiente"
       ORDER BY t.fecha ASC, t.hora ASC
       LIMIT 1
 
@@ -279,7 +282,8 @@ router.post("/sacarturno", auth, verificarRol(3), function(req, res) {
     });
 });
 //cuando se registra un diagnostico el estado cambia a finalizado
-router.put("/modificarestado", auth, verificarRol(2), function(req, res) {
+router.put("/modificarestado", auth, verificarRol(2,3), function(req, res) {
+   console.log("BODY RECIBIDO EN BACK:", req.body);
   const { id_turno, estado } = req.body;
 
   if (!id_turno || typeof estado === "undefined") {
@@ -301,5 +305,5 @@ router.put("/modificarestado", auth, verificarRol(2), function(req, res) {
     });
 });
 
-module.exports = router;
 
+module.exports = router;
