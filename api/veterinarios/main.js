@@ -185,6 +185,7 @@ router.put("/editarperfil", auth, verificarRol(2), async function(req, res) {
 
     const { id_persona, id_direccion } = personas[0];
 
+    // 1. Verificar duplicados
     const sqlCheck = `
       SELECT u.id_usuario, u.email, p.dni
       FROM usuarios u
@@ -193,16 +194,14 @@ router.put("/editarperfil", auth, verificarRol(2), async function(req, res) {
     `;
     const [rows] = await db.query(sqlCheck, [email, dni, id_usuario]);
 
+    const errores = [];
     if (rows.length > 0) {
-      const existeEmail = rows.some(r => r.email === email);
-      const existeDni = rows.some(r => r.dni === dni);
+      if (rows.some(r => r.email === email)) errores.push("El email ya está registrado por otro usuario");
+      if (rows.some(r => r.dni === dni)) errores.push("El DNI ya está registrado por otro usuario");
+    }
 
-      if (existeEmail) {
-        return res.status(409).send("El email ya está registrado por otro usuario");
-      }
-      if (existeDni) {
-        return res.status(409).send("El DNI ya está registrado por otro usuario");
-      }
+    if (errores.length > 0) {
+      return res.status(409).json({ errores });
     }
 
     const sqlUpdatePersona = `
@@ -239,6 +238,14 @@ router.put("/editarperfil", auth, verificarRol(2), async function(req, res) {
     res.status(200).send("Perfil actualizado correctamente");
   } catch (error) {
     console.error("Error en PUT /perfil:", error);
+
+    if (error.code === "ER_DUP_ENTRY") {
+      const errores = [];
+      if (error.sqlMessage.includes("dni")) errores.push("El DNI ya está registrado por otro usuario");
+      if (error.sqlMessage.includes("email")) errores.push("El email ya está registrado por otro usuario");
+      return res.status(409).json({ errores });
+    }
+
     res.status(500).send("Ocurrió un error al actualizar el perfil");
   }
 });
