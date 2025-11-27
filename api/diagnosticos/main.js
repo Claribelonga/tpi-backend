@@ -193,21 +193,37 @@ router.put("/:id_diagnostico", auth, verificarRol(2), async function(req, res) {
       id_diagnostico
     ]);
 
+    // 2. Obtener el turno y la mascota asociada a este diagnóstico
     const [turnoRows] = await db.query(
-      "SELECT id_turno FROM diagnosticos WHERE id_diagnostico = ?",
+      `SELECT d.id_turno, t.id_mascota, t.fecha
+       FROM diagnosticos d
+       INNER JOIN turnos t ON d.id_turno = t.id_turno
+       WHERE d.id_diagnostico = ?`,
       [id_diagnostico]
     );
 
     if (turnoRows.length > 0) {
-      const id_turno = turnoRows[0].id_turno;
+      const { id_turno, id_mascota, fecha } = turnoRows[0];
 
-      const sqlActualizarPeso = `
-        UPDATE mascotas m
-          JOIN turnos t ON m.id_mascota = t.id_mascota
-          SET m.peso = ?
-          WHERE t.id_turno = ?
-      `;
-      await db.query(sqlActualizarPeso, [peso_actual, id_turno]);
+      // 3. Verificar si este diagnóstico es el último registrado para esa mascota
+      const [ultimoDiagRows] = await db.query(
+        `SELECT d.id_diagnostico
+         FROM diagnosticos d
+         INNER JOIN turnos t ON d.id_turno = t.id_turno
+         WHERE t.id_mascota = ?
+         ORDER BY t.fecha DESC, d.id_diagnostico DESC
+         LIMIT 1`,
+        [id_mascota]
+      );
+
+      if (ultimoDiagRows.length > 0 && ultimoDiagRows[0].id_diagnostico == id_diagnostico) {
+        const sqlActualizarPeso = `
+          UPDATE mascotas
+          SET peso = ?
+          WHERE id_mascota = ?
+        `;
+        await db.query(sqlActualizarPeso, [peso_actual, id_mascota]);
+      }
     }
 
     const [rows] = await db.query(
