@@ -185,6 +185,26 @@ router.put("/editarperfil", auth, verificarRol(2), async function(req, res) {
 
     const { id_persona, id_direccion } = personas[0];
 
+    const sqlCheck = `
+      SELECT u.id_usuario, u.email, p.dni
+      FROM usuarios u
+      LEFT JOIN personas p ON u.id_usuario = p.id_usuario
+      WHERE (u.email = ? OR p.dni = ?) AND u.id_usuario <> ?
+    `;
+    const [rows] = await db.query(sqlCheck, [email, dni, id_usuario]);
+
+    if (rows.length > 0) {
+      const existeEmail = rows.some(r => r.email === email);
+      const existeDni = rows.some(r => r.dni === dni);
+
+      if (existeEmail) {
+        return res.status(409).send("El email ya está registrado por otro usuario");
+      }
+      if (existeDni) {
+        return res.status(409).send("El DNI ya está registrado por otro usuario");
+      }
+    }
+
     const sqlUpdatePersona = `
       UPDATE personas
       SET nombre = ?, apellido = ?, dni = ?, telefono = ?
@@ -232,40 +252,61 @@ router.post("/crearveterinario", auth, verificarRol(1), function(req, res, next)
 
   const passHash = hashPass(dni.toString());
   const id_rol = 2;
-  // 1. Insertar en usuarios
-  const sqlUsuario = "INSERT INTO usuarios (email, contraseña, id_rol) VALUES (?, ?, ?)";
-  db.query(sqlUsuario, [email, passHash, id_rol])
-    .then(([resultUsuario]) => {
-      const id_usuario = resultUsuario.insertId;
 
-      // 2. Insertar en direcciones
-      const sqlDireccion = "INSERT INTO direcciones (calle, numero, piso, departamento) VALUES (?, ?, ?, ?)";
-      return db.query(sqlDireccion, [calle, numero, piso, departamento])
-        .then(([resultDireccion]) => {
-          const id_direccion = resultDireccion.insertId;
+  const sqlCheck = `
+    SELECT u.email, p.dni, v.matricula
+    FROM usuarios u
+    LEFT JOIN personas p ON u.id_usuario = p.id_usuario
+    LEFT JOIN veterinarios v ON p.id_persona = v.id_persona
+    WHERE u.email = ? OR p.dni = ? OR v.matricula = ?
+  `;
+  db.query(sqlCheck, [email, dni, matricula])
+    .then(([rows]) => {
+      if (rows.length > 0) {
+        const existeEmail = rows.some(r => r.email === email);
+        const existeDni = rows.some(r => r.dni === dni);
+        const existeMatricula = rows.some(r => r.matricula === matricula);
 
-          // 3. Insertar en personas
-          const sqlPersona = "INSERT INTO personas (nombre, apellido, dni, telefono, id_direccion, id_usuario) VALUES (?, ?, ?, ?, ?, ?)";
-          return db.query(sqlPersona, [nombre, apellido, dni, telefono, id_direccion, id_usuario])
-            .then(([resultPersona]) => {
-              const id_persona = resultPersona.insertId;
+        if (existeEmail) {
+          return res.status(409).send("El email ya está registrado");
+        }
+        if (existeDni) {
+          return res.status(409).send("El DNI ya está registrado");
+        }
+        if (existeMatricula) {
+          return res.status(409).send("La matrícula ya está registrada");
+        }
+      }
 
-              // 4. Insertar en veterinarios
-              const sqlVeterinario = "INSERT INTO veterinarios (matricula, id_especialidad, id_persona) VALUES (?, ?, ?)";
-              return db.query(sqlVeterinario, [matricula, id_especialidad, id_persona]);
+      const sqlUsuario = "INSERT INTO usuarios (email, contraseña, id_rol) VALUES (?, ?, ?)";
+      return db.query(sqlUsuario, [email, passHash, id_rol])
+        .then(([resultUsuario]) => {
+          const id_usuario = resultUsuario.insertId;
+
+          const sqlDireccion = "INSERT INTO direcciones (calle, numero, piso, departamento) VALUES (?, ?, ?, ?)";
+          return db.query(sqlDireccion, [calle, numero, piso, departamento])
+            .then(([resultDireccion]) => {
+              const id_direccion = resultDireccion.insertId;
+
+              const sqlPersona = "INSERT INTO personas (nombre, apellido, dni, telefono, id_direccion, id_usuario) VALUES (?, ?, ?, ?, ?, ?)";
+              return db.query(sqlPersona, [nombre, apellido, dni, telefono, id_direccion, id_usuario])
+                .then(([resultPersona]) => {
+                  const id_persona = resultPersona.insertId;
+
+                  const sqlVeterinario = "INSERT INTO veterinarios (matricula, id_especialidad, id_persona) VALUES (?, ?, ?)";
+                  return db.query(sqlVeterinario, [matricula, id_especialidad, id_persona]);
+                });
             });
+        })
+        .then(() => {
+          res.status(201).send("Veterinario creado correctamente");
         });
-    })
-    .then(() => {
-      res.status(201).send("Veterinario creado correctamente");
     })
     .catch((error) => {
       console.error("Error al crear veterinario:", error);
       res.status(500).send("Ocurrió un error al guardar el veterinario");
     });
 });
-
-
 //el admin editar el veterinario pero NO la contraseña
 router.put("/editarvete/:id_usuario", auth, verificarRol(1), function(req, res, next) {
   const { id_usuario } = req.params;
@@ -276,33 +317,56 @@ router.put("/editarvete/:id_usuario", auth, verificarRol(1), function(req, res, 
     matricula, id_especialidad
   } = req.body;
 
-  // const passHash = hashPass(contraseña);
-
-  // 1. Actualizar usuarios
-  const sqlUsuario = "UPDATE usuarios SET email = ?  WHERE id_usuario = ?";
-  db.query(sqlUsuario, [email, id_usuario])
-    .then(() => {
-      const sqlPersona = "UPDATE personas SET nombre = ?, apellido = ?, dni = ?, telefono = ? WHERE id_usuario = ?";
-      return db.query(sqlPersona, [nombre, apellido, dni, telefono, id_usuario]);
-    })
-    .then(() => {
-      const sqlGetPersona = "SELECT id_direccion, id_persona FROM personas WHERE id_usuario = ?";
-      return db.query(sqlGetPersona, [id_usuario]);
-    })
+  const sqlCheck = `
+    SELECT u.email, p.dni, v.matricula
+    FROM usuarios u
+    LEFT JOIN personas p ON u.id_usuario = p.id_usuario
+    LEFT JOIN veterinarios v ON p.id_persona = v.id_persona
+    WHERE (u.email = ? OR p.dni = ? OR v.matricula = ?) AND u.id_usuario <> ?
+  `;
+  db.query(sqlCheck, [email, dni, matricula, id_usuario])
     .then(([rows]) => {
-      if (rows.length === 0) throw new Error("No se encontró la persona asociada al usuario");
+      if (rows.length > 0) {
+        const existeEmail = rows.some(r => r.email === email);
+        const existeDni = rows.some(r => r.dni === dni);
+        const existeMatricula = rows.some(r => r.matricula === matricula);
 
-      const { id_direccion, id_persona } = rows[0];
+        if (existeEmail) {
+          return res.status(409).send("El email ya está registrado por otro usuario");
+        }
+        if (existeDni) {
+          return res.status(409).send("El DNI ya está registrado por otro usuario");
+        }
+        if (existeMatricula) {
+          return res.status(409).send("La matrícula ya está registrada por otro veterinario");
+        }
+      }
 
-      const sqlDireccion = "UPDATE direcciones SET calle = ?, numero = ?, piso = ?, departamento = ? WHERE id_direccion = ?";
-      return db.query(sqlDireccion, [calle, numero, piso, departamento, id_direccion])
+      const sqlUsuario = "UPDATE usuarios SET email = ? WHERE id_usuario = ?";
+      return db.query(sqlUsuario, [email, id_usuario])
         .then(() => {
-          const sqlVeterinario = "UPDATE veterinarios SET matricula = ?, id_especialidad = ? WHERE id_persona = ?";
-          return db.query(sqlVeterinario, [matricula, id_especialidad, id_persona]);
+          const sqlPersona = "UPDATE personas SET nombre = ?, apellido = ?, dni = ?, telefono = ? WHERE id_usuario = ?";
+          return db.query(sqlPersona, [nombre, apellido, dni, telefono, id_usuario]);
+        })
+        .then(() => {
+          const sqlGetPersona = "SELECT id_direccion, id_persona FROM personas WHERE id_usuario = ?";
+          return db.query(sqlGetPersona, [id_usuario]);
+        })
+        .then(([rows]) => {
+          if (rows.length === 0) throw new Error("No se encontró la persona asociada al usuario");
+
+          const { id_direccion, id_persona } = rows[0];
+
+          const sqlDireccion = "UPDATE direcciones SET calle = ?, numero = ?, piso = ?, departamento = ? WHERE id_direccion = ?";
+          return db.query(sqlDireccion, [calle, numero, piso, departamento, id_direccion])
+            .then(() => {
+              const sqlVeterinario = "UPDATE veterinarios SET matricula = ?, id_especialidad = ? WHERE id_persona = ?";
+              return db.query(sqlVeterinario, [matricula, id_especialidad, id_persona]);
+            });
+        })
+        .then(() => {
+          res.status(200).send("Perfil de veterinario actualizado correctamente");
         });
-    })
-    .then(() => {
-      res.status(200).send("Perfil de veterinario actualizado correctamente");
     })
     .catch((error) => {
       console.error("Error al actualizar perfil de veterinario:", error);

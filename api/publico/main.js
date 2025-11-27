@@ -8,9 +8,9 @@ router.get("/servicios", function(req, res) {
   const offset = (pagina - 1) * registrosPorPagina;
 
   const sqlDatos = `
-    SELECT id_servicio, nombre, precio
-    FROM servicios 
-    LIMIT ? OFFSET ?
+    SELECT COUNT(*) AS total 
+    FROM servicios
+    WHERE estado = 1
   `;
 
   const sqlCount = `
