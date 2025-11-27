@@ -262,20 +262,15 @@ router.post("/crearveterinario", auth, verificarRol(1), function(req, res, next)
   `;
   db.query(sqlCheck, [email, dni, matricula])
     .then(([rows]) => {
+      const errores = [];
       if (rows.length > 0) {
-        const existeEmail = rows.some(r => r.email === email);
-        const existeDni = rows.some(r => r.dni === dni);
-        const existeMatricula = rows.some(r => r.matricula === matricula);
+        if (rows.some(r => r.email === email)) errores.push("El email ya está registrado");
+        if (rows.some(r => r.dni === dni)) errores.push("El DNI ya está registrado");
+        if (rows.some(r => r.matricula === matricula)) errores.push("La matrícula ya está registrada");
+      }
 
-        if (existeEmail) {
-          return res.status(409).send("El email ya está registrado");
-        }
-        if (existeDni) {
-          return res.status(409).send("El DNI ya está registrado");
-        }
-        if (existeMatricula) {
-          return res.status(409).send("La matrícula ya está registrada");
-        }
+      if (errores.length > 0) {
+        return res.status(409).json({ errores });
       }
 
       const sqlUsuario = "INSERT INTO usuarios (email, contraseña, id_rol) VALUES (?, ?, ?)";
@@ -304,6 +299,15 @@ router.post("/crearveterinario", auth, verificarRol(1), function(req, res, next)
     })
     .catch((error) => {
       console.error("Error al crear veterinario:", error);
+
+      if (error.code === "ER_DUP_ENTRY") {
+        const errores = [];
+        if (error.sqlMessage.includes("dni")) errores.push("El DNI ya está registrado");
+        if (error.sqlMessage.includes("email")) errores.push("El email ya está registrado");
+        if (error.sqlMessage.includes("matricula")) errores.push("La matrícula ya está registrada");
+        return res.status(409).json({ errores });
+      }
+
       res.status(500).send("Ocurrió un error al guardar el veterinario");
     });
 });
@@ -326,20 +330,15 @@ router.put("/editarvete/:id_usuario", auth, verificarRol(1), function(req, res, 
   `;
   db.query(sqlCheck, [email, dni, matricula, id_usuario])
     .then(([rows]) => {
+      const errores = [];
       if (rows.length > 0) {
-        const existeEmail = rows.some(r => r.email === email);
-        const existeDni = rows.some(r => r.dni === dni);
-        const existeMatricula = rows.some(r => r.matricula === matricula);
+        if (rows.some(r => r.email === email)) errores.push("El email ya está registrado por otro usuario");
+        if (rows.some(r => r.dni === dni)) errores.push("El DNI ya está registrado por otro usuario");
+        if (rows.some(r => r.matricula === matricula)) errores.push("La matrícula ya está registrada por otro veterinario");
+      }
 
-        if (existeEmail) {
-          return res.status(409).send("El email ya está registrado por otro usuario");
-        }
-        if (existeDni) {
-          return res.status(409).send("El DNI ya está registrado por otro usuario");
-        }
-        if (existeMatricula) {
-          return res.status(409).send("La matrícula ya está registrada por otro veterinario");
-        }
+      if (errores.length > 0) {
+        return res.status(409).json({ errores });
       }
 
       const sqlUsuario = "UPDATE usuarios SET email = ? WHERE id_usuario = ?";
@@ -370,6 +369,15 @@ router.put("/editarvete/:id_usuario", auth, verificarRol(1), function(req, res, 
     })
     .catch((error) => {
       console.error("Error al actualizar perfil de veterinario:", error);
+
+      if (error.code === "ER_DUP_ENTRY") {
+        const errores = [];
+        if (error.sqlMessage.includes("dni")) errores.push("El DNI ya está registrado por otro usuario");
+        if (error.sqlMessage.includes("email")) errores.push("El email ya está registrado por otro usuario");
+        if (error.sqlMessage.includes("matricula")) errores.push("La matrícula ya está registrada por otro veterinario");
+        return res.status(409).json({ errores });
+      }
+
       res.status(500).send("Ocurrió un error al actualizar el perfil");
     });
 });

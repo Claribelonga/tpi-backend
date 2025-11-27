@@ -128,7 +128,7 @@ router.get("/", function(req, res) {
     });
 });
 // El admin crea un nuevo cliente
-router.post("/crearcliente", function(req, res, next) {
+router.post("/crearcliente", async function(req, res, next) {
   const {
     email, nombre, apellido, dni, telefono,
     calle, numero, piso, departamento
@@ -137,52 +137,52 @@ router.post("/crearcliente", function(req, res, next) {
   const passHash = hashPass(dni.toString());
   const id_rol = 3;
 
-  const sqlCheck = `
-    SELECT u.email, p.dni
-    FROM usuarios u
-    LEFT JOIN personas p ON u.id_usuario = p.id_usuario
-    WHERE u.email = ? OR p.dni = ?
-  `;
-  db.query(sqlCheck, [email, dni])
-    .then(([rows]) => {
-      if (rows.length > 0) {
-        const existeEmail = rows.some(r => r.email === email);
-        const existeDni = rows.some(r => r.dni === dni);
+  try {
+    const sqlCheck = `
+      SELECT u.email, p.dni
+      FROM usuarios u
+      LEFT JOIN personas p ON u.id_usuario = p.id_usuario
+      WHERE u.email = ? OR p.dni = ?
+    `;
+    const [rows] = await db.query(sqlCheck, [email, dni]);
 
-        if (existeEmail) {
-          return res.status(409).send("El email ya está registrado");
-        }
-        if (existeDni) {
-          return res.status(409).send("El DNI ya está registrado");
-        }
-      }
+    const errores = [];
+    if (rows.length > 0) {
+      if (rows.some(r => r.email === email)) errores.push("El email ya está registrado");
+      if (rows.some(r => r.dni === dni)) errores.push("El DNI ya está registrado");
+    }
 
-      const sqlUsuario = "INSERT INTO usuarios (email, contraseña, id_rol) VALUES (?, ?, ?)";
-      return db.query(sqlUsuario, [email, passHash, id_rol])
-        .then(([resultUsuario]) => {
-          const id_usuario = resultUsuario.insertId;
+    if (errores.length > 0) {
+      return res.status(409).json({ errores });
+    }
 
-          const sqlDireccion = "INSERT INTO direcciones (calle, numero, piso, departamento) VALUES (?, ?, ?, ?)";
-          return db.query(sqlDireccion, [calle, numero, piso, departamento])
-            .then(([resultDireccion]) => {
-              const id_direccion = resultDireccion.insertId;
+    const sqlUsuario = "INSERT INTO usuarios (email, contraseña, id_rol) VALUES (?, ?, ?)";
+    const [resultUsuario] = await db.query(sqlUsuario, [email, passHash, id_rol]);
+    const id_usuario = resultUsuario.insertId;
 
-              const sqlPersona = "INSERT INTO personas (nombre, apellido, dni, telefono, id_direccion, id_usuario) VALUES (?, ?, ?, ?, ?, ?)";
-              return db.query(sqlPersona, [nombre, apellido, dni, telefono, id_direccion, id_usuario]);
-            });
-        })
-        .then(() => {
-          res.status(201).send("Usuario, dirección y persona guardados correctamente");
-        });
-    })
-    .catch((error) => {
-      console.error("Error al crear cliente:", error);
-      res.status(500).send("Ocurrió un error al guardar los datos");
-    });
+    const sqlDireccion = "INSERT INTO direcciones (calle, numero, piso, departamento) VALUES (?, ?, ?, ?)";
+    const [resultDireccion] = await db.query(sqlDireccion, [calle, numero, piso, departamento]);
+    const id_direccion = resultDireccion.insertId;
+
+    const sqlPersona = "INSERT INTO personas (nombre, apellido, dni, telefono, id_direccion, id_usuario) VALUES (?, ?, ?, ?, ?, ?)";
+    await db.query(sqlPersona, [nombre, apellido, dni, telefono, id_direccion, id_usuario]);
+
+    res.status(201).send("Usuario, dirección y persona guardados correctamente");
+  } catch (error) {
+    console.error("Error al crear cliente:", error);
+
+    if (error.code === "ER_DUP_ENTRY") {
+      const errores = [];
+      if (error.sqlMessage.includes("dni")) errores.push("El DNI ya está registrado");
+      if (error.sqlMessage.includes("email")) errores.push("El email ya está registrado");
+      return res.status(409).json({ errores });
+    }
+
+    res.status(500).send("Ocurrió un error al guardar los datos");
+  }
 });
-
 // el admin edita al cliente, menos mascotas y contra
-router.put("/editarcliente/:id_usuario", function(req, res, next) {
+router.put("/editarcliente/:id_usuario", async function(req, res, next) {
   const { id_usuario } = req.params;
   const {
     email,
@@ -190,57 +190,55 @@ router.put("/editarcliente/:id_usuario", function(req, res, next) {
     calle, numero, piso, departamento
   } = req.body;
 
-  // 0. Verificar duplicados de email y dni en otros usuarios
-  const sqlCheck = `
-    SELECT u.email, p.dni
-    FROM usuarios u
-    LEFT JOIN personas p ON u.id_usuario = p.id_usuario
-    WHERE (u.email = ? OR p.dni = ?) AND u.id_usuario <> ?
-  `;
-  db.query(sqlCheck, [email, dni, id_usuario])
-    .then(([rows]) => {
-      if (rows.length > 0) {
-        const existeEmail = rows.some(r => r.email === email);
-        const existeDni = rows.some(r => r.dni === dni);
+  try {
+    // 0. Verificar duplicados de email y dni en otros usuarios
+    const sqlCheck = `
+      SELECT u.email, p.dni
+      FROM usuarios u
+      LEFT JOIN personas p ON u.id_usuario = p.id_usuario
+      WHERE (u.email = ? OR p.dni = ?) AND u.id_usuario <> ?
+    `;
+    const [rows] = await db.query(sqlCheck, [email, dni, id_usuario]);
 
-        if (existeEmail) {
-          return res.status(409).send("El email ya está registrado por otro usuario");
-        }
-        if (existeDni) {
-          return res.status(409).send("El DNI ya está registrado por otro usuario");
-        }
-      }
+    const errores = [];
+    if (rows.length > 0) {
+      if (rows.some(r => r.email === email)) errores.push("El email ya está registrado por otro usuario");
+      if (rows.some(r => r.dni === dni)) errores.push("El DNI ya está registrado por otro usuario");
+    }
 
-      // 1. Actualizar usuarios
-      const sqlUsuario = "UPDATE usuarios SET email = ? WHERE id_usuario = ?";
-      return db.query(sqlUsuario, [email, id_usuario])
-        .then(() => {
-          // 2. Actualizar persona
-          const sqlPersona = "UPDATE personas SET nombre = ?, apellido = ?, dni = ?, telefono = ? WHERE id_usuario = ?";
-          return db.query(sqlPersona, [nombre, apellido, dni, telefono, id_usuario]);
-        })
-        .then(() => {
-          // 3. Obtener dirección vinculada
-          const sqlGetDireccion = "SELECT id_direccion FROM personas WHERE id_usuario = ?";
-          return db.query(sqlGetDireccion, [id_usuario]);
-        })
-        .then(([rows]) => {
-          if (rows.length === 0) throw new Error("No se encontró la persona asociada al usuario");
+    if (errores.length > 0) {
+      return res.status(409).json({ errores });
+    }
 
-          const id_direccion = rows[0].id_direccion;
+    const sqlUsuario = "UPDATE usuarios SET email = ? WHERE id_usuario = ?";
+    await db.query(sqlUsuario, [email, id_usuario]);
 
-          // 4. Actualizar dirección
-          const sqlDireccion = "UPDATE direcciones SET calle = ?, numero = ?, piso = ?, departamento = ? WHERE id_direccion = ?";
-          return db.query(sqlDireccion, [calle, numero, piso, departamento, id_direccion]);
-        })
-        .then(() => {
-          res.status(200).send("Perfil completo actualizado correctamente");
-        });
-    })
-    .catch((error) => {
-      console.error("Error al actualizar perfil completo:", error);
-      res.status(500).send("Ocurrió un error al actualizar el perfil");
-    });
+    const sqlPersona = "UPDATE personas SET nombre = ?, apellido = ?, dni = ?, telefono = ? WHERE id_usuario = ?";
+    await db.query(sqlPersona, [nombre, apellido, dni, telefono, id_usuario]);
+
+    const sqlGetDireccion = "SELECT id_direccion FROM personas WHERE id_usuario = ?";
+    const [rowsDireccion] = await db.query(sqlGetDireccion, [id_usuario]);
+
+    if (rowsDireccion.length === 0) throw new Error("No se encontró la persona asociada al usuario");
+
+    const id_direccion = rowsDireccion[0].id_direccion;
+
+    const sqlDireccion = "UPDATE direcciones SET calle = ?, numero = ?, piso = ?, departamento = ? WHERE id_direccion = ?";
+    await db.query(sqlDireccion, [calle, numero, piso, departamento, id_direccion]);
+
+    res.status(200).send("Perfil completo actualizado correctamente");
+  } catch (error) {
+    console.error("Error al actualizar perfil completo:", error);
+
+    if (error.code === "ER_DUP_ENTRY") {
+      const errores = [];
+      if (error.sqlMessage.includes("dni")) errores.push("El DNI ya está registrado por otro usuario");
+      if (error.sqlMessage.includes("email")) errores.push("El email ya está registrado por otro usuario");
+      return res.status(409).json({ errores });
+    }
+
+    res.status(500).send("Ocurrió un error al actualizar el perfil");
+  }
 });
 //restablecer contrasena, para clientes y veterinarios, solo admin
 router.put("/restablecer/:id_usuario", async function(req, res) {
