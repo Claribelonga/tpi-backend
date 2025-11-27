@@ -17,6 +17,7 @@ router.get("/servicios", function(req, res) {
   const sqlCount = `
     SELECT COUNT(*) AS total 
     FROM servicios
+    WHERE estado = 1
   `;
 
   Promise.all([
