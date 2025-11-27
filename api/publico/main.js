@@ -8,7 +8,7 @@ router.get("/servicios", function(req, res) {
 
   const sqlDatos = `
     SELECT id_servicio, nombre, precio
-    FROM servicios 
+    FROM servicios WHERE estado = 1
     LIMIT ? OFFSET ?
   `;
 
