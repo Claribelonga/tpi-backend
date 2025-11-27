@@ -1,9 +1,9 @@
 const router = require("express").Router();
 const db = require('../../conexion');
-const { auth } = require('../middleware'); // Middleware de autenticación
+const { auth, verificarRol } = require("../middleware");
 
 //me trae un listado de mascotas segun el cliente que se logueo
-router.get("/", auth, function(req, res) {
+router.get("/", auth, verificarRol(3), function(req, res) {
   const userId = req.user?.id;
 
   if (!userId) {
@@ -56,8 +56,8 @@ router.get("/", auth, function(req, res) {
       res.status(500).send("Ocurrió un error al identificar al usuario");
     });
 });
-//filtro de mascotas por dni de cliente
-router.get("/select", auth, function(req, res) {
+//filtro de mascotas por dni del cliente
+router.get("/select", auth, verificarRol(2), function(req, res) {
   const { dni } = req.query;
 
   if (!dni) {
@@ -103,8 +103,8 @@ router.get("/select", auth, function(req, res) {
     });
 });
 
-//al guardar la nueva mascota usa el id del cliente logueado y lo crea.
-router.post("/nuevamascota", auth, function(req, res) {
+//el cliente logueado registra una nueva mascota
+router.post("/nuevamascota", auth, verificarRol(3), function(req, res) {
   const userId = req.user?.id;
 
   if (!userId) {
@@ -162,8 +162,8 @@ router.post("/nuevamascota", auth, function(req, res) {
       res.status(500).send("Ocurrió un error al registrar la mascota");
     });
 });
-
-router.put("/editarmascota/:id_mascota", auth, function(req, res) {
+//el cliente logueado modifica el registro de una mascota
+router.put("/editarmascota/:id_mascota", auth, verificarRol(3), function(req, res) {
   const userId = req.user?.id;
   const { id_mascota } = req.params;
 
@@ -180,7 +180,6 @@ router.put("/editarmascota/:id_mascota", auth, function(req, res) {
     return res.status(401).send("Usuario no autenticado");
   }
 
-  // 1. Obtener id_persona del usuario
   const sqlPersona = `
     SELECT id_persona 
     FROM personas 
@@ -195,7 +194,6 @@ router.put("/editarmascota/:id_mascota", auth, function(req, res) {
 
       const id_persona = personas[0].id_persona;
 
-      // 2. Verificar que la mascota pertenezca a ese id_persona
       const sqlVerificar = `
         SELECT id_mascota 
         FROM mascotas 
@@ -208,7 +206,6 @@ router.put("/editarmascota/:id_mascota", auth, function(req, res) {
             throw new Error("No tenés permiso para editar esta mascota");
           }
 
-          // 3. Actualizar la mascota
           const sqlUpdate = `
             UPDATE mascotas 
             SET nombre = ?, id_raza = ?, sexo = ?, fecha_nacimiento = ?, altura = ?, peso = ?

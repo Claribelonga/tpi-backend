@@ -37,7 +37,7 @@ const pagina = parseInt(req.query.pagina) || 1;
       res.status(500).send("Error al obtener servicios");
     });
 });
-//solo ven los servicios activos
+//servicios activos
 router.get("/select", auth, verificarRol(2,3), function(req, res, next) {
   const sql = "SELECT * FROM servicios WHERE estado = 1";
 
@@ -50,13 +50,11 @@ router.get("/select", auth, verificarRol(2,3), function(req, res, next) {
       res.status(500).send("Ocurrió un error al obtener los servicios");
     });
 });
-
 //el admin crea un servicio
 router.post("/crearservicio", auth, verificarRol(1), function(req, res, next) {
   const { nombre, precio } = req.body;
 
-  //el estado es "activo" cuando se lo crea.
-  const estado = 1;
+  const estado = 1; //predeterminado al crearse
   const sql = "INSERT INTO servicios (nombre, estado, precio) VALUES (?, ?, ?)";
 
   db.query(sql, [nombre, estado, precio])
@@ -68,8 +66,7 @@ router.post("/crearservicio", auth, verificarRol(1), function(req, res, next) {
       res.status(500).send("Ocurrió un error al crear el servicio");
     });
 });
-
-//el admin cambia el servicio
+//el admin modifica el servicio
 router.put("/modificarservicio/:id", auth, verificarRol(1), function(req, res, next) {
   const { id } = req.params;
   const { nombre, precio} = req.body;
@@ -90,7 +87,7 @@ router.put("/modificarservicio/:id", auth, verificarRol(1), function(req, res, n
       res.status(500).send("Ocurrió un error al actualizar el estado");
     });
 });
-
+//el admin cambia el estado del servicio
 router.put("/modificarestado/:id", function(req, res, next) {
   const { id } = req.params;
   const { estado } = req.body;

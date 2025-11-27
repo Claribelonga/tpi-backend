@@ -15,12 +15,10 @@ router.get("/", function(req, res, next) {
       res.status(500).send("Ocurrió un error al obtener las especies");
     });
 });
-
 //Dependiendo la especie que se seleccione, el cliente puede ver las razas disponibles
 router.get("/razas", function(req, res, next) {
   const {id_especie} = req.query;
 
-  // Validación: id_especies es obligatorio
   if (!id_especie) {
     return res.status(400).send("El parámetro 'id_especie' es requerido");
   }
@@ -36,6 +34,5 @@ router.get("/razas", function(req, res, next) {
       res.status(500).send("Ocurrió un error al obtener las razas");
     });
 });
-
 
 module.exports = router;

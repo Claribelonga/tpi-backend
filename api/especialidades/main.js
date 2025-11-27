@@ -1,6 +1,5 @@
 const router = require("express").Router();
 const db = require('../../conexion');
-
 const { auth, verificarRol } = require("../middleware");
 
 //el admin lo usa para asigarle una especialidad al veterinario.

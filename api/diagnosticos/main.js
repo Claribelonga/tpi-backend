@@ -2,7 +2,7 @@ const router = require("express").Router();
 const db = require('../../conexion');
 const { auth, verificarRol } = require("../middleware");
 
-//veo los diagnosticos de una mascota
+//el veterinario ve los diagnosticos de una mascota
 router.get("/", auth, verificarRol(2), async function(req, res) {
   const { id_mascota, pagina } = req.query;
 
@@ -14,7 +14,6 @@ router.get("/", auth, verificarRol(2), async function(req, res) {
   const paginaActual = parseInt(pagina) || 1;
   const offset = (paginaActual - 1) * registrosPorPagina;
 
-  // 1. Total de diagnósticos
   const sqlCount = `
     SELECT COUNT(*) AS total
     FROM diagnosticos d
@@ -22,7 +21,6 @@ router.get("/", auth, verificarRol(2), async function(req, res) {
     WHERE t.id_mascota = ?
   `;
 
-  // 2. Diagnósticos paginados con fecha del turno
   const sqlDiagnosticos = `
     SELECT 
       d.id_diagnostico,
@@ -48,7 +46,6 @@ router.get("/", auth, verificarRol(2), async function(req, res) {
     const totalRegistros = conteo[0].total;
     const totalPaginas = Math.ceil(totalRegistros / registrosPorPagina);
 
-    // 3. Adjuntar archivos a cada diagnóstico
     for (let diag of diagnosticos) {
       const [archivos] = await db.query(
         "SELECT id_archivo, nombre FROM archivos WHERE id_diagnostico = ?",
@@ -69,8 +66,7 @@ router.get("/", auth, verificarRol(2), async function(req, res) {
     res.status(500).send("Ocurrió un error al obtener los diagnósticos");
   }
 });
-
-//crear un get para ver el diagnostico limitado para cliente(diagnostico y tratamiento)
+//el cliente puede ver el diagnostico y tratamiento
 router.get("/turnocliente", auth, verificarRol(3), function(req, res) {
   const { id_turno } = req.query;
 
@@ -92,7 +88,6 @@ router.get("/turnocliente", auth, verificarRol(3), function(req, res) {
   db.query(sql, [id_turno])
     .then(([rows]) => {
       if (rows.length === 0) {
-        // turno existe pero sin diagnóstico
         return res.status(200).json({ diagnostico: null });
       }
       res.status(200).json({ diagnostico: rows[0] });
@@ -102,8 +97,7 @@ router.get("/turnocliente", auth, verificarRol(3), function(req, res) {
       res.status(500).send("Ocurrió un error al obtener el diagnóstico");
     });
 });
-
-//para agenda turnos
+//el veterinario ve los diagnosticos dependiendo del turno
 router.get("/turno", auth, verificarRol(2), function(req, res) {
   const { id_turno } = req.query;
 
@@ -127,7 +121,6 @@ router.get("/turno", auth, verificarRol(2), function(req, res) {
   db.query(sql, [id_turno])
     .then(([rows]) => {
       if (rows.length === 0) {
-        // turno existe pero sin diagnóstico
         return res.status(200).json({ diagnostico: null });
       }
       res.status(200).json({ diagnostico: rows[0] });
@@ -137,8 +130,7 @@ router.get("/turno", auth, verificarRol(2), function(req, res) {
       res.status(500).send("Ocurrió un error al obtener el diagnóstico");
     });
 });
-
-//crea un nuevo diagnostico, dependiendo del turno y actualiza el peso
+//el veterinario crea un nuevo diagnostico, dependiendo del turno y actualiza el peso
 router.post("/", auth, verificarRol(2), async function(req, res) {
   const {
     id_turno,
@@ -149,7 +141,6 @@ router.post("/", auth, verificarRol(2), async function(req, res) {
   } = req.body;
 
   try {
-    // 1. Insertar diagnóstico
     const sqlDiagnostico = `
       INSERT INTO diagnosticos (id_turno, diagnostico, tratamiento, observaciones, peso_actual)
       VALUES (?, ?, ?, ?, ?)
@@ -164,7 +155,6 @@ router.post("/", auth, verificarRol(2), async function(req, res) {
 
     const id_diagnostico = result.insertId;
 
-    // 2. Actualizar peso en mascotas
     const sqlActualizarPeso = `
       UPDATE mascotas m
       JOIN turnos t ON m.id_mascota = t.id_mascota
@@ -173,7 +163,6 @@ router.post("/", auth, verificarRol(2), async function(req, res) {
     `;
     await db.query(sqlActualizarPeso, [peso_actual, id_turno]);
 
-    // 3. Devolver el diagnóstico recién creado
     const [rows] = await db.query(
       "SELECT * FROM diagnosticos WHERE id_diagnostico = ?",
       [id_diagnostico]
@@ -185,14 +174,12 @@ router.post("/", auth, verificarRol(2), async function(req, res) {
     res.status(500).send("Ocurrió un error al registrar el diagnóstico");
   }
 });
-
-//lo hace el admin
+//el veterinario modifica ciertos campos del diagnostico
 router.put("/:id_diagnostico", auth, verificarRol(2), async function(req, res) {
   const { id_diagnostico } = req.params;
   const { diagnostico, tratamiento, observaciones, peso_actual } = req.body;
 
   try {
-    // 1. Actualizar diagnóstico
     const sqlUpdate = `
       UPDATE diagnosticos
       SET diagnostico = ?, tratamiento = ?, observaciones = ?, peso_actual = ?
@@ -206,25 +193,39 @@ router.put("/:id_diagnostico", auth, verificarRol(2), async function(req, res) {
       id_diagnostico
     ]);
 
-    // 2. Obtener id_turno para actualizar peso en mascotas
+    // 2. Obtener el turno y la mascota asociada a este diagnóstico
     const [turnoRows] = await db.query(
-      "SELECT id_turno FROM diagnosticos WHERE id_diagnostico = ?",
+      `SELECT d.id_turno, t.id_mascota, t.fecha
+       FROM diagnosticos d
+       INNER JOIN turnos t ON d.id_turno = t.id_turno
+       WHERE d.id_diagnostico = ?`,
       [id_diagnostico]
     );
 
     if (turnoRows.length > 0) {
-      const id_turno = turnoRows[0].id_turno;
+      const { id_turno, id_mascota, fecha } = turnoRows[0];
 
-      const sqlActualizarPeso = `
-        UPDATE mascotas m
-          JOIN turnos t ON m.id_mascota = t.id_mascota
-          SET m.peso = ?
-          WHERE t.id_turno = ?
-      `;
-      await db.query(sqlActualizarPeso, [peso_actual, id_turno]);
+      // 3. Verificar si este diagnóstico es el último registrado para esa mascota
+      const [ultimoDiagRows] = await db.query(
+        `SELECT d.id_diagnostico
+         FROM diagnosticos d
+         INNER JOIN turnos t ON d.id_turno = t.id_turno
+         WHERE t.id_mascota = ?
+         ORDER BY t.fecha DESC, d.id_diagnostico DESC
+         LIMIT 1`,
+        [id_mascota]
+      );
+
+      if (ultimoDiagRows.length > 0 && ultimoDiagRows[0].id_diagnostico == id_diagnostico) {
+        const sqlActualizarPeso = `
+          UPDATE mascotas
+          SET peso = ?
+          WHERE id_mascota = ?
+        `;
+        await db.query(sqlActualizarPeso, [peso_actual, id_mascota]);
+      }
     }
 
-    // 3. Devolver el diagnóstico actualizado
     const [rows] = await db.query(
       "SELECT * FROM diagnosticos WHERE id_diagnostico = ?",
       [id_diagnostico]

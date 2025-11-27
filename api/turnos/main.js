@@ -3,7 +3,7 @@ const router = express.Router();
 const db = require('../../conexion');
 const { auth, verificarRol } = require("../middleware");
 
-//veo los turnos de todos los animales segun el cliente logeado y un filtro 
+//el cliente logueado ve los turnos de sus mascotas
 router.get("/cliente", auth, verificarRol(3), function(req, res) {
   const userId = req.user?.id;
   const { id_mascota } = req.query;
@@ -26,7 +26,6 @@ router.get("/cliente", auth, verificarRol(3), function(req, res) {
 
       const id_persona = personas[0].id_persona;
 
-      // Consulta enriquecida con JOINs
       let sqlTurnos = `
         SELECT 
           t.id_turno, t.fecha, t.hora, t.estado,
@@ -48,7 +47,7 @@ router.get("/cliente", auth, verificarRol(3), function(req, res) {
         params.push(id_mascota);
       }
 
-      sqlTurnos += " ORDER BY t.fecha DESC, t.hora DESC";
+      sqlTurnos += " ORDER BY t.fecha DESC, t.hora DESC"; //filtros
 
       return db.query(sqlTurnos, params);
     })
@@ -60,8 +59,7 @@ router.get("/cliente", auth, verificarRol(3), function(req, res) {
       res.status(500).send("Ocurrió un error al obtener los turnos");
     });
 });
-
-//el vete que se logueo puede ver sus turnos asignados, no ve los cancelados
+//el veterinario logueado puede ver sus turnos asignados, no ve los cancelados
 router.get("/veterinario", auth, verificarRol(2), async function(req, res) {
   const userId = req.user?.id;
 
@@ -70,7 +68,6 @@ router.get("/veterinario", auth, verificarRol(2), async function(req, res) {
   }
 
   try {
-    // 1. Obtener id_persona del usuario
     const [personas] = await db.query(
       "SELECT id_persona FROM personas WHERE id_usuario = ?",
       [userId]
@@ -80,7 +77,6 @@ router.get("/veterinario", auth, verificarRol(2), async function(req, res) {
     }
     const id_persona = personas[0].id_persona;
 
-    // 2. Obtener id_veterinario
     const [veterinarios] = await db.query(
       "SELECT id_veterinario FROM veterinarios WHERE id_persona = ?",
       [id_persona]
@@ -90,8 +86,7 @@ router.get("/veterinario", auth, verificarRol(2), async function(req, res) {
     }
     const id_veterinario = veterinarios[0].id_veterinario;
 
-    // 3. Armar filtros dinámicos
-    const { servicio, fecha, estado } = req.query; 
+    const { servicio, fecha, estado } = req.query; //filtros
     let sqlTurnos = `
       SELECT 
         t.id_turno, t.fecha, t.hora, t.estado,
@@ -109,7 +104,6 @@ router.get("/veterinario", auth, verificarRol(2), async function(req, res) {
       sqlTurnos += " AND t.estado = ?";
       params.push(estado);
     } else {
-      // valor por defecto si no se pasa estado
       sqlTurnos += " AND t.estado IN ('pendiente','finalizado')";
     }
 
@@ -184,8 +178,7 @@ router.get("/fichadatos", auth, verificarRol(2), function(req, res) {
       res.status(500).send("Ocurrió un error al obtener los datos");
     });
 });
-
-//se encarga de traer el proximo turno comparando la fecha del turno con el de la compu
+//se encarga de traer el proximo turno comparando la fecha del turno con el local
 router.get("/proximo", auth, verificarRol(3), async function(req, res) {
   const userId = req.user?.id;
 
@@ -194,7 +187,6 @@ router.get("/proximo", auth, verificarRol(3), async function(req, res) {
   }
 
   try {
-    // 1. Obtener id_persona del usuario
     const [personas] = await db.query("SELECT id_persona FROM personas WHERE id_usuario = ?", [userId]);
     if (!personas.length) {
       throw new Error("No se encontró la persona asociada al usuario");
@@ -202,7 +194,6 @@ router.get("/proximo", auth, verificarRol(3), async function(req, res) {
 
     const id_persona = personas[0].id_persona;
 
-    // 2. Obtener el próximo turno de sus mascotas
     const sqlTurno = `
       SELECT 
         t.id_turno,
@@ -235,7 +226,7 @@ router.get("/proximo", auth, verificarRol(3), async function(req, res) {
     }
   }
 });
-
+//el cliente puede sacar un turno
 router.post("/sacarturno", auth, verificarRol(3), function(req, res) {
   const userId = req.user?.id;
 
@@ -254,7 +245,6 @@ router.post("/sacarturno", auth, verificarRol(3), function(req, res) {
 
   let id_persona;
 
-  // 1. Obtener id_persona del usuario
   db.query("SELECT id_persona FROM personas WHERE id_usuario = ?", [userId])
     .then(([personas]) => {
       if (!personas.length) {
@@ -263,7 +253,6 @@ router.post("/sacarturno", auth, verificarRol(3), function(req, res) {
 
       id_persona = personas[0].id_persona;
 
-      // 2. Verificar que la mascota pertenece al cliente
       const sqlMascota = `
         SELECT id_mascota 
         FROM mascotas 
@@ -276,7 +265,6 @@ router.post("/sacarturno", auth, verificarRol(3), function(req, res) {
         throw new Error("No tenés permiso para sacar turno con esa mascota");
       }
 
-      // 3. Insertar el turno
       const sqlInsert = `
         INSERT INTO turnos (
           fecha, hora, estado, id_servicio, id_mascota, id_veterinario
@@ -293,6 +281,7 @@ router.post("/sacarturno", auth, verificarRol(3), function(req, res) {
       res.status(500).send(error.message || "Ocurrió un error al registrar el turno");
     });
 });
+//cuando se registra un diagnostico el estado cambia a finalizado
 router.put("/modificarestado", auth, verificarRol(2,3), function(req, res) {
    console.log("BODY RECIBIDO EN BACK:", req.body);
   const { id_turno, estado } = req.body;
@@ -317,5 +306,4 @@ router.put("/modificarestado", auth, verificarRol(2,3), function(req, res) {
 });
 
 
-//veo los turnos segun el veterinario que se logeo
 module.exports = router;

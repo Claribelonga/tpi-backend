@@ -27,7 +27,7 @@ router.post('/', function(req, res) {
             }
           );
 
-          res.status(200).json({ status: "ok", token, rol: usuario.id_rol }); //agregar el rol
+          res.status(200).json({ status: "ok", token, rol: usuario.id_rol });
         } else {
           res.status(401).send("Usuario y/o contraseña incorrecto");
         }

@@ -127,7 +127,6 @@ router.get("/", function(req, res) {
       res.status(500).send("Ocurrió un error al obtener los datos");
     });
 });
-
 // El admin crea un nuevo cliente
 router.post("/crearcliente", function(req, res, next) {
   const {
@@ -137,35 +136,52 @@ router.post("/crearcliente", function(req, res, next) {
 
   const passHash = hashPass(dni.toString());
   const id_rol = 3;
-  // 1. Insertar en usuarios
-  const sqlUsuario = "INSERT INTO usuarios (email, contraseña, id_rol) VALUES (?, ?, ?)";
-  db.query(sqlUsuario, [email, passHash, id_rol])
-    .then(([resultUsuario]) => {
-      const id_usuario = resultUsuario.insertId; //para saber el id que se creo
-      
 
-      // 2. Insertar en direcciones
-      const sqlDireccion = "INSERT INTO direcciones (calle, numero, piso, departamento) VALUES (?, ?, ?, ?)";
-      return db.query(sqlDireccion, [calle, numero, piso, departamento])
-        .then(([resultDireccion]) => {
-          const id_direccion = resultDireccion.insertId;
-         
+  const sqlCheck = `
+    SELECT u.email, p.dni
+    FROM usuarios u
+    LEFT JOIN personas p ON u.id_usuario = p.id_usuario
+    WHERE u.email = ? OR p.dni = ?
+  `;
+  db.query(sqlCheck, [email, dni])
+    .then(([rows]) => {
+      if (rows.length > 0) {
+        const existeEmail = rows.some(r => r.email === email);
+        const existeDni = rows.some(r => r.dni === dni);
 
-          // 3. Insertar en personas
-          const sqlPersona = "INSERT INTO personas (nombre, apellido, dni, telefono, id_direccion, id_usuario) VALUES (?, ?, ?, ?, ?, ?)";
-          return db.query(sqlPersona, [nombre, apellido, dni, telefono, id_direccion, id_usuario]);
+        if (existeEmail) {
+          return res.status(409).send("El email ya está registrado");
+        }
+        if (existeDni) {
+          return res.status(409).send("El DNI ya está registrado");
+        }
+      }
+
+      const sqlUsuario = "INSERT INTO usuarios (email, contraseña, id_rol) VALUES (?, ?, ?)";
+      return db.query(sqlUsuario, [email, passHash, id_rol])
+        .then(([resultUsuario]) => {
+          const id_usuario = resultUsuario.insertId;
+
+          const sqlDireccion = "INSERT INTO direcciones (calle, numero, piso, departamento) VALUES (?, ?, ?, ?)";
+          return db.query(sqlDireccion, [calle, numero, piso, departamento])
+            .then(([resultDireccion]) => {
+              const id_direccion = resultDireccion.insertId;
+
+              const sqlPersona = "INSERT INTO personas (nombre, apellido, dni, telefono, id_direccion, id_usuario) VALUES (?, ?, ?, ?, ?, ?)";
+              return db.query(sqlPersona, [nombre, apellido, dni, telefono, id_direccion, id_usuario]);
+            });
+        })
+        .then(() => {
+          res.status(201).send("Usuario, dirección y persona guardados correctamente");
         });
     })
-    .then(() => {
-      res.status(201).send("Usuario, dirección y persona guardados correctamente");
-    })
     .catch((error) => {
-      console.error(error);
+      console.error("Error al crear cliente:", error);
       res.status(500).send("Ocurrió un error al guardar los datos");
     });
 });
 
-// el admin edita al cliente, menos mascotas y contra ya que corresponde a otra tabla.
+// el admin edita al cliente, menos mascotas y contra
 router.put("/editarcliente/:id_usuario", function(req, res, next) {
   const { id_usuario } = req.params;
   const {
@@ -174,30 +190,52 @@ router.put("/editarcliente/:id_usuario", function(req, res, next) {
     calle, numero, piso, departamento
   } = req.body;
 
-  // 1. Actualizar usuarios (email vacía)
-  const sqlUsuario = "UPDATE usuarios SET email = ? WHERE id_usuario = ?";
-  db.query(sqlUsuario, [email, id_usuario])
-    .then(() => {
-      // 2. Actualizar personas
-      const sqlPersona = "UPDATE personas SET nombre = ?, apellido = ?, dni = ?, telefono = ? WHERE id_usuario = ?";
-      return db.query(sqlPersona, [nombre, apellido, dni, telefono, id_usuario]);
-    })
-    .then(() => {
-      // 3. Obtener id_direccion desde personas
-      const sqlGetDireccion = "SELECT id_direccion FROM personas WHERE id_usuario = ?";
-      return db.query(sqlGetDireccion, [id_usuario]);
-    })
+  // 0. Verificar duplicados de email y dni en otros usuarios
+  const sqlCheck = `
+    SELECT u.email, p.dni
+    FROM usuarios u
+    LEFT JOIN personas p ON u.id_usuario = p.id_usuario
+    WHERE (u.email = ? OR p.dni = ?) AND u.id_usuario <> ?
+  `;
+  db.query(sqlCheck, [email, dni, id_usuario])
     .then(([rows]) => {
-      if (rows.length === 0) throw new Error("No se encontró la persona asociada al usuario");
+      if (rows.length > 0) {
+        const existeEmail = rows.some(r => r.email === email);
+        const existeDni = rows.some(r => r.dni === dni);
 
-      const id_direccion = rows[0].id_direccion;
+        if (existeEmail) {
+          return res.status(409).send("El email ya está registrado por otro usuario");
+        }
+        if (existeDni) {
+          return res.status(409).send("El DNI ya está registrado por otro usuario");
+        }
+      }
 
-      // 4. Actualizar direcciones
-      const sqlDireccion = "UPDATE direcciones SET calle = ?, numero = ?, piso = ?, departamento = ? WHERE id_direccion = ?";
-      return db.query(sqlDireccion, [calle, numero, piso, departamento, id_direccion]);
-    })
-    .then(() => {
-      res.status(200).send("Perfil completo actualizado (contraseña vaciada)");
+      // 1. Actualizar usuarios
+      const sqlUsuario = "UPDATE usuarios SET email = ? WHERE id_usuario = ?";
+      return db.query(sqlUsuario, [email, id_usuario])
+        .then(() => {
+          // 2. Actualizar persona
+          const sqlPersona = "UPDATE personas SET nombre = ?, apellido = ?, dni = ?, telefono = ? WHERE id_usuario = ?";
+          return db.query(sqlPersona, [nombre, apellido, dni, telefono, id_usuario]);
+        })
+        .then(() => {
+          // 3. Obtener dirección vinculada
+          const sqlGetDireccion = "SELECT id_direccion FROM personas WHERE id_usuario = ?";
+          return db.query(sqlGetDireccion, [id_usuario]);
+        })
+        .then(([rows]) => {
+          if (rows.length === 0) throw new Error("No se encontró la persona asociada al usuario");
+
+          const id_direccion = rows[0].id_direccion;
+
+          // 4. Actualizar dirección
+          const sqlDireccion = "UPDATE direcciones SET calle = ?, numero = ?, piso = ?, departamento = ? WHERE id_direccion = ?";
+          return db.query(sqlDireccion, [calle, numero, piso, departamento, id_direccion]);
+        })
+        .then(() => {
+          res.status(200).send("Perfil completo actualizado correctamente");
+        });
     })
     .catch((error) => {
       console.error("Error al actualizar perfil completo:", error);
@@ -209,7 +247,6 @@ router.put("/restablecer/:id_usuario", async function(req, res) {
   const { id_usuario } = req.params;
 
   try {
-    // 1. Buscar el dni en la tabla personas
     const [personas] = await db.query(
       "SELECT dni FROM personas WHERE id_usuario = ?",
       [id_usuario]
@@ -221,10 +258,8 @@ router.put("/restablecer/:id_usuario", async function(req, res) {
 
     const dni = personas[0].dni;
 
-    // 2. Hashear el dni con tu librería
     const hashedPassword = hashPass(dni.toString());
 
-    // 3. Actualizar la contraseña en la tabla usuarios
     const [result] = await db.query(
       "UPDATE usuarios SET contraseña = ? WHERE id_usuario = ?",
       [hashedPassword, id_usuario]
@@ -234,7 +269,6 @@ router.put("/restablecer/:id_usuario", async function(req, res) {
       return res.status(404).send("Usuario no encontrado");
     }
 
-    // 4. Respuesta de éxito
     res.status(200).send("Contraseña restablecida correctamente (DNI como nueva contraseña)");
 
   } catch (error) {
@@ -242,6 +276,5 @@ router.put("/restablecer/:id_usuario", async function(req, res) {
     res.status(500).send("Ocurrió un error al restablecer la contraseña");
   }
 });
-
 
 module.exports = router;

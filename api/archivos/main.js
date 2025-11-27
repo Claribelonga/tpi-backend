@@ -4,9 +4,9 @@ const { auth, verificarRol } = require("../middleware");
 const fileUpload = require("express-fileupload");
 const path = require("path");
 const fs = require("fs");
-
+//en esta ubicacion se van a guardar los archivos de diagnostico
 const directorio = path.join(__dirname, "..","..", "archivosCarpeta");
-
+//el veterinario sube archivos
 router.post("/", auth, verificarRol(2), fileUpload(), async (req, res) => {
   try {
     if (!req.files || !req.files.archivo) {
@@ -14,7 +14,7 @@ router.post("/", auth, verificarRol(2), fileUpload(), async (req, res) => {
     }
 
     const { archivo } = req.files;
-    const { id_diagnostico } = req.body; // 👈 el diagnóstico al que se asocia
+    const { id_diagnostico } = req.body; // el diagnóstico al que se asocia
 
     if (!id_diagnostico) {
       return res.status(400).send("Falta id_diagnostico");
@@ -48,8 +48,7 @@ router.post("/", auth, verificarRol(2), fileUpload(), async (req, res) => {
     res.status(500).send("Ocurrió un error al guardar el archivo");
   }
 });
-
-// GET para descargar archivo por id_archivo
+//para descargar archivo por id_archivo
 router.get("/:id_archivo", auth, verificarRol(2,3), async (req, res) => {
   const { id_archivo } = req.params;
 
